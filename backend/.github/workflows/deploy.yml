@@ -26,10 +26,8 @@ jobs:
             echo ${{secrets.PROD_PASSWORD}} | sudo -S apt upgrade -y
 
             git pull
-            source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt --upgrade
-            deactivate
-            
+            ~/.local/bin/uv sync --frozen
+
+
             echo ${{secrets.PROD_PASSWORD}} | sudo -S systemctl restart api
             echo ${{secrets.PROD_PASSWORD}} | sudo -S docker compose restart

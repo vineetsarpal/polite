@@ -15,14 +15,13 @@ The two apps communicate at runtime via HTTP; in dev the frontend points at the 
 
 ### Backend (`cd backend`)
 ```bash
-python -m venv venv && source venv/bin/activate  # one-time
-pip install -r requirements.txt
+uv sync                                # one-time (and after dep changes); creates .venv/
 
-fastapi dev src/main.py          # dev server with reload (http://localhost:8000)
-python scripts/seed_db.py        # DROPS and recreates all tables, then seeds demo data
-docker compose up -d             # spins up Prometheus + Grafana + Alertmanager (NOT the API)
+uv run fastapi dev src/main.py         # dev server with reload (http://localhost:8000)
+uv run python scripts/seed_db.py       # DROPS and recreates all tables, then seeds demo data
+docker compose up -d                   # spins up Prometheus + Grafana + Alertmanager (NOT the API)
 ```
-Tables are auto-created on app startup via `Base.metadata.create_all` in `src/main.py` — there is no Alembic. Schema changes require dropping the DB or re-running `seed_db.py`.
+Dependencies are managed via `pyproject.toml` + `uv.lock` (uv); there is no `requirements.txt`. Add deps with `uv add <pkg>` (don't hand-edit the lock). Tables are auto-created on app startup via `Base.metadata.create_all` in `src/main.py` — there is no Alembic. Schema changes require dropping the DB or re-running `seed_db.py`.
 
 Production runs Gunicorn under systemd (`gunicorn.service`); CI deploy is `.github/workflows/deploy.yml` which SSH's to the prod host and restarts the `api` service.
 

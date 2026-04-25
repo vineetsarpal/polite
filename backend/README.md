@@ -17,35 +17,27 @@ A modular FastAPI backend for managing insurance policies.
 
 From the monorepo root:
 
-1. **Create and activate a virtual environment**
+1. **Install dependencies** (creates `.venv/` and installs from `uv.lock`)
     ```bash
     cd backend
-    python -m venv venv
-    # On Linux/macOS
-    source venv/bin/activate
-    # On Windows
-    venv\Scripts\activate
+    uv sync
     ```
+    Requires [uv](https://docs.astral.sh/uv/). Activate the venv with `source .venv/bin/activate` if you want bare commands, or prefix everything with `uv run`.
 
-2. **Install dependencies**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3. **Configure environment variables**
+2. **Configure environment variables**
     - Create `.env` with `DATABASE_URL`, `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `FRONTEND_URL`. See the [root README](../README.md#2-backend) for a full example.
 
-4. **Seed the database** (drops and recreates all tables, then loads demo data)
+3. **Seed the database** (drops and recreates all tables, then loads demo data)
     ```bash
-    python scripts/seed_db.py
+    uv run python scripts/seed_db.py
     ```
 
-5. **Start the FastAPI server**
+4. **Start the FastAPI server**
     ```bash
-    fastapi dev src/main.py
+    uv run fastapi dev src/main.py
     ```
 
-6. **API Overview**
+5. **API Overview**
     Interactive docs at [http://localhost:8000/docs](http://localhost:8000/docs); Prometheus metrics at [http://localhost:8000/metrics](http://localhost:8000/metrics).
 
 ## Project Structure

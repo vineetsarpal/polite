@@ -48,7 +48,8 @@ polite/
 │   ├── nginx/               # reverse-proxy reference config
 │   ├── docker-compose.yml   # monitoring stack (NOT the API)
 │   ├── gunicorn.service     # systemd unit for production
-│   └── requirements.txt
+│   ├── pyproject.toml       # uv-managed deps
+│   └── uv.lock
 ├── frontend/        # React SPA (subtree of polite-client-web)
 │   ├── src/
 │   │   ├── main.tsx
@@ -102,6 +103,7 @@ Regenerate `src/types/openapi.ts` whenever the API schema changes (see commands 
 ### Prerequisites
 
 - Python 3.11+
+- [uv](https://docs.astral.sh/uv/) (Python package manager)
 - Node.js 20+ and npm
 - PostgreSQL 14+ running locally (or a connection URL to a remote instance)
 
@@ -116,9 +118,7 @@ cd polite
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate                 # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+uv sync                                   # creates .venv/ and installs from uv.lock
 ```
 
 Create `backend/.env`:
@@ -139,7 +139,7 @@ AUTH0_ALGORITHM=RS256
 Seed the database with demo data (admin + guest users, sample contacts and policies):
 
 ```bash
-python scripts/seed_db.py
+uv run python scripts/seed_db.py
 ```
 
 > ⚠️ `seed_db.py` **drops and recreates all tables**. There are no Alembic migrations — the schema is created on app startup via `Base.metadata.create_all`.
@@ -147,7 +147,7 @@ python scripts/seed_db.py
 Run the API:
 
 ```bash
-fastapi dev src/main.py
+uv run fastapi dev src/main.py
 ```
 
 The API is now at [http://localhost:8000](http://localhost:8000), interactive docs at [http://localhost:8000/docs](http://localhost:8000/docs), and Prometheus metrics at [http://localhost:8000/metrics](http://localhost:8000/metrics).
@@ -191,10 +191,12 @@ Open [http://localhost:5173](http://localhost:5173). Use the seeded credentials 
 
 | Command                              | What it does                                               |
 | ------------------------------------ | ---------------------------------------------------------- |
-| `fastapi dev src/main.py`            | Run the API with hot reload                                |
-| `python scripts/seed_db.py`          | Drop, recreate, and seed all tables                        |
+| `uv sync`                            | Install/update dependencies from `uv.lock` into `.venv/`   |
+| `uv add <pkg>` / `uv remove <pkg>`   | Add or remove a dependency (updates `pyproject.toml` + lock) |
+| `uv run fastapi dev src/main.py`     | Run the API with hot reload                                |
+| `uv run python scripts/seed_db.py`   | Drop, recreate, and seed all tables                        |
 | `docker compose up -d`               | Start Prometheus + Grafana + Alertmanager (monitoring only) |
-| `gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:8000` | Production server (also defined in `gunicorn.service`) |
+| `uv run gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:8000` | Production server (also defined in `gunicorn.service`) |
 
 ### Frontend (`cd frontend`)
 
@@ -227,7 +229,7 @@ Full interactive documentation lives at `/docs` (Swagger UI) and `/redoc` when t
 
 ## Deployment
 
-- **Backend** — Pushes to `main` trigger `.github/workflows/deploy.yml`, which SSHes to the production host, runs `git pull`, reinstalls dependencies in the project venv, and restarts the `api` systemd service plus the monitoring `docker compose` stack. The systemd unit is in `backend/gunicorn.service`; an Nginx reverse-proxy reference is in `backend/nginx/nginx.conf`.
+- **Backend** — Pushes to `main` trigger `.github/workflows/deploy.yml`, which SSHes to the production host, runs `git pull`, syncs dependencies via `uv sync --frozen`, and restarts the `api` systemd service plus the monitoring `docker compose` stack. The systemd unit is in `backend/gunicorn.service`; an Nginx reverse-proxy reference is in `backend/nginx/nginx.conf`.
 - **Frontend** — Deployed to Cloudflare Pages at [polite-client-web.pages.dev](https://polite-client-web.pages.dev).
 
 ---
