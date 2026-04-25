@@ -65,8 +65,6 @@ polite/
 └── CLAUDE.md        # guidance for AI assistants working in this repo
 ```
 
-> Note: `backend_old/` and `frontend_old/` are untracked legacy snapshots kept locally for reference — they are not part of the running app.
-
 ## Architecture overview
 
 ### Auth & multi-tenancy

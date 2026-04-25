@@ -8,7 +8,6 @@ This is a monorepo for **Polite**, an insurance policy management app. Two top-l
 
 - `backend/` — FastAPI + SQLAlchemy + PostgreSQL API. Originated from the `polite-server` repo and was added here via `git subtree` (see initial commits).
 - `frontend/` — React 19 + Vite + TypeScript SPA. Originated from `polite-client-web`, also subtree-merged.
-- `backend_old/`, `frontend_old/` — untracked legacy snapshots. Don't edit; ignore unless explicitly asked.
 
 The two apps communicate at runtime via HTTP; in dev the frontend points at the backend through `VITE_API_BASE_URL` (default `http://localhost:8000/api`).
 
