@@ -1,0 +1,35 @@
+name: Deploy FastAPI app
+
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+    steps:
+      - name: pulling git repo
+        uses: actions/checkout@v4
+
+      - name: deploy to ubuntu server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{secrets.PROD_HOST}}
+          username: ${{secrets.PROD_USERNAME}}
+          password: ${{secrets.PROD_PASSWORD}}
+          script: |
+            cd app
+
+            echo ${{secrets.PROD_PASSWORD}} | sudo -S apt update
+            echo ${{secrets.PROD_PASSWORD}} | sudo -S apt upgrade -y
+
+            git pull
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt --upgrade
+            deactivate
+            
+            echo ${{secrets.PROD_PASSWORD}} | sudo -S systemctl restart api
+            echo ${{secrets.PROD_PASSWORD}} | sudo -S docker compose restart

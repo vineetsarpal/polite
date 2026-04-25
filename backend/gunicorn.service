@@ -1,0 +1,14 @@
+[Unit]
+Description=Polite Backend
+After=network.target
+
+[Service]
+User=vineet
+Group=vineet
+WorkingDirectory=/home/vineet/app/
+Environment="PATH=/home/vineet/app/venv/bin"
+EnvironmentFile=/home/vineet/.env
+ExecStart=/home/vineet/app/venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:8000
+
+[Install]
+WantedBy=multi-user.target
