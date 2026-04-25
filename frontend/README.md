@@ -1,61 +1,59 @@
-# Polite
+# Polite — Web Client
 
-Polite is a modern, lightweight Insurance Policy Management platform.  
-This repo is the React frontend web client for Polite
+The React + Vite + TypeScript frontend for Polite, a modern, lightweight Insurance Policy Management platform.
+
+> This directory is part of the [Polite monorepo](../README.md). It was originally the standalone [`polite-client-web`](https://github.com/vineetsarpal/polite-client-web) repo and was folded in via `git subtree`. See the [root README](../README.md) for the full architecture, demo credentials, and deployment notes.
 
 ## Features
 
-- User authentication
+- User authentication (JWT, stored in `localStorage` via `AuthContext`)
 - Continue as a guest user
-- Create policies
-- View and ediit policies
-- Responsive, user-friendly UI
+- Create, view, and edit policies and contacts
+- Multi-tenant: data is scoped to the logged-in user's organization
+- Type-safe API calls via types generated from the backend's OpenAPI schema
+- Responsive, Chakra UI–based interface
 
 ## Live Demo
 
-Visit the deployed frontend app:  
 **[https://polite-client-web.pages.dev](https://polite-client-web.pages.dev)**
-
 
 ## Backend API
 
-This frontend connects to the Polite FastAPI server  
-For API documentation and setup instructions refer to the repo:  
-[polite-server](https://github.com/vineetsarpal/polite-server)
-
+This client talks to the FastAPI backend in [`../backend`](../backend) (same repo). The API base URL is configured via `VITE_API_BASE_URL` and defaults to `http://localhost:8000/api`.
 
 ## Getting Started
 
-1. **Clone the repository**
-    ```
-    git clone https://github.com/vineetsarpal/polite-client-web.git
-    cd polite-client-web
-    ```
+From the monorepo root:
 
-2. **Install dependencies**
-    ```
+1. **Install dependencies**
+    ```bash
+    cd frontend
     npm install
     ```
 
-3. **Configure environment**
-    - Copy `.env.example` to `.env` and set the backend API's base URL.
+2. **Configure environment**
+    ```bash
+    cp .env.sample .env
+    ```
+    Set `VITE_API_BASE_URL` (e.g. `http://localhost:8000/api`).
 
-4. **Run the app**
-    ```
-    npm start
+3. **Run the app**
+    ```bash
+    npm run dev
     ```
 
-5. **Access the app**
-    - Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. **Access the app**
+    - Open [http://localhost:5173](http://localhost:5173).
 
-
-6. **Extract types from OpenAPI**
-    Keep the types in sync with the API
-    ```
-    npm install -D openapi-typescript
-    ```
-    
-    e.g. If a local backend API is runnning on port 8000, run:
-    ```
+5. **Regenerate API types from the running backend**
+    Keep `src/types/openapi.ts` in sync after backend schema changes:
+    ```bash
     npx openapi-typescript http://localhost:8000/openapi.json -o src/types/openapi.ts
     ```
+
+## Project Notes
+
+- **Routing:** TanStack Router with file-based routes in `src/routes/`. `src/routeTree.gen.ts` is **auto-generated** — never hand-edit it.
+- **Data fetching:** TanStack Query, plus inline `fetch()` calls in route components that read the bearer token from `useAuth()`.
+- **UI:** Chakra UI v3, forms via `react-hook-form`.
+- **Path alias:** `@/*` → `src/*`.
