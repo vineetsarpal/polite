@@ -18,5 +18,8 @@ dependencies = [
     "sqlalchemy>=2.0",
 ]
 
+[tool.fastapi]
+entrypoint = "src.main:app"
+
 [tool.uv]
 package = false
