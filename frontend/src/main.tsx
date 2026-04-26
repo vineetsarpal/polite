@@ -1,18 +1,21 @@
-import { Provider } from "@/components/ui/provider"
 import { StrictMode } from 'react'
 import ReactDOM from 'react-dom/client'
+import { ClerkProvider } from '@clerk/clerk-react'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
-import { AuthProvider } from "./context/AuthContext"
-// import { Auth0Provider } from '@auth0/auth0-react'
+import { Provider as ChakraProvider } from '@/components/ui/provider'
 
 import { routeTree } from './routeTree.gen'
 
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+if (!PUBLISHABLE_KEY) {
+  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY')
+}
 
 const queryClient = new QueryClient()
 
-const router = createRouter({ 
+const router = createRouter({
   routeTree,
   context: {
     queryClient,
@@ -33,23 +36,18 @@ if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <StrictMode>
-      <Provider>
+      <ClerkProvider
+        publishableKey={PUBLISHABLE_KEY}
+        afterSignInUrl="/dashboard"
+        afterSignUpUrl="/dashboard"
+      >
         <QueryClientProvider client={queryClient}>
-          {/* <Auth0Provider
-              domain={import.meta.env.VITE_AUTH0_DOMAIN}
-              clientId={import.meta.env.VITE_AUTH0_CLIENT_ID}
-              authorizationParams={{
-                redirect_uri: import.meta.env.VITE_AUTH0_CALLBACK_URL,
-                audience: import.meta.env.VITE_AUTH0_AUDIENCE,
-              }}
-          > */}
-            <AuthProvider>
-              <RouterProvider router={router} />
-              <ReactQueryDevtools initialIsOpen={false} />
-            </AuthProvider>
-          {/* </Auth0Provider> */}
+          <ChakraProvider>
+            <RouterProvider router={router} />
+            <ReactQueryDevtools initialIsOpen={false} />
+          </ChakraProvider>
         </QueryClientProvider>
-      </Provider>
+      </ClerkProvider>
     </StrictMode>,
   )
 }
