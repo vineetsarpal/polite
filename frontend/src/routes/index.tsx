@@ -1,5 +1,4 @@
-import { useAuth } from "@/context/AuthContext";
-// import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth } from '@clerk/clerk-react'
 import {
   Box,
   Button,
@@ -8,8 +7,7 @@ import {
   Stack,
   Text,
   VStack,
-} from "@chakra-ui/react";
-
+} from '@chakra-ui/react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/')({
@@ -17,18 +15,17 @@ export const Route = createFileRoute('/')({
 })
 
 function Index() {
-    const { isLoggedIn } = useAuth()
-    // const { isAuthenticated } = useAuth0()
+  const { isSignedIn } = useAuth()
 
-    function Feature({ title, description }: { title: string, description: string}) {
-      return (
-        <VStack gap={2} maxW="sm">
-          <Heading size="sm">{title}</Heading>
-          <Text>{description}</Text>
-        </VStack>
-      )
-    }
-  
+  function Feature({ title, description }: { title: string, description: string }) {
+    return (
+      <VStack gap={2} maxW="sm">
+        <Heading size="sm">{title}</Heading>
+        <Text>{description}</Text>
+      </VStack>
+    )
+  }
+
   return (
     <Box>
       <Container maxW="7xl" py={20} textAlign="center">
@@ -45,17 +42,15 @@ function Index() {
             mt={4}
             justify="center"
           >
-
-            {!isLoggedIn ? (
-              <Link to="/login">
+            {!isSignedIn ? (
+              <Link to="/sign-in">
                 <Button colorScheme="gray" size="lg">Get Started</Button>
               </Link>
-              ) : (
-                <Link to="/dashboard">
-                  <Button size="lg">Dashboard</Button>
-                </Link>
-              )
-            }
+            ) : (
+              <Link to="/dashboard">
+                <Button size="lg">Dashboard</Button>
+              </Link>
+            )}
 
             <Link to="/about">
               <Button variant="outline" size="lg">
