@@ -1,148 +1,106 @@
-from typing import Annotated, List, Optional, Union
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
 from datetime import datetime, date
+from typing import Optional, List, Literal
+from pydantic import BaseModel, EmailStr, ConfigDict
 
-# === Token Schemas ===
-class Token(BaseModel):
-    access_token: str
-    token_type: str
 
-class TokenData(BaseModel):
-    username: str | None = None
-    organization_id: str | None = None
-    permissions: List[str] = []
-
-# === Auth0 ===
-class Auth0Payload(BaseModel):
-    # This schema defines the expected structure of the Auth0 JWT payload you want to return
-    sub: str
-    email: Optional[str] = None
-    name: Optional[str] = None
-    permissions: Optional[List[str]] = None
-    # Add other common claims like 'aud', 'iss', 'exp', etc. if you want to use them
-    
-# Organization Schemas ===
+# === Organization ===
 class OrganizationBase(BaseModel):
+    id: str
     name: str
+    slug: Optional[str] = None
 
-class OrganizationCreate(OrganizationBase):
-    pass
 
 class OrganizationPublic(OrganizationBase):
-    id: int
-    
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: Optional[datetime] = None
+
     model_config = ConfigDict(from_attributes=True)
 
-# === User Schemas ===
-class UserBase(BaseModel):
-    username: str
-    email: EmailStr | None = None
-    full_name: str | None = None
 
-class UserCreate(UserBase):
-    pass
+# === User ===
+class UserBase(BaseModel):
+    id: str
+    email: EmailStr
+    full_name: Optional[str] = None
+    is_active: bool = True
+
 
 class UserPublic(UserBase):
-    id: int
-    is_active: bool | None = True
-
-    created_at: datetime 
-    updated_at: datetime
-    
-
-    model_config = ConfigDict(from_attributes=True)
-
-class CurrentUser(UserPublic):
-    permissions: List[str] = []
-    organization_id: str | None = None
-
-
-# === Permission Schemas ===
-class PermissionBase(BaseModel):
-    name: str
-    description: str | None = None
-
-class PermissionCreate(PermissionBase):
-    pass
-
-
-class PermissionPublic(PermissionBase):
-    id: int
     created_at: datetime
     updated_at: datetime
 
-class PermissionWithAssignment(PermissionBase):
-    id: int
-    assigned: bool
+    model_config = ConfigDict(from_attributes=True)
 
 
-# === Role Schemas ===
-class RoleBase(BaseModel):
-    name: str
-    description: str | None = None
-
-class RoleCreate(RoleBase):
-    pass
-
-class RolePublic(RoleBase):
-    id: int
+# === Membership ===
+class MembershipPublic(BaseModel):
+    id: str
+    user_id: str
+    organization_id: str
     created_at: datetime
-    updated_at: datetime
-    users: List[UserPublic] = []
-    permissions: List[PermissionPublic] = []
 
     model_config = ConfigDict(from_attributes=True)
 
-class RoleWithAssignment(RoleBase):
-    id: int
-    assigned: bool | None = None
+
+class OrgMember(BaseModel):
+    """User listed within their org (joins users + memberships)."""
+    id: str
+    email: EmailStr
+    full_name: Optional[str] = None
+    is_active: bool
+    membership_id: str
+    membership_created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
-# === Contact Schemas ===
+# === Contact ===
 class ContactBase(BaseModel):
-    type: str
-    first_name: str
-    last_name: str
-    email: EmailStr | None = None
-    dob: date | None = None
+    type: Optional[Literal["individual", "company"]] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    dob: Optional[date] = None
+    is_active: bool = True
+
 
 class ContactCreate(ContactBase):
     pass
 
+
 class ContactPublic(ContactBase):
     id: int
-    organization_id: str | None = None
-    is_active: bool | None = True
+    organization_id: str
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# === Policy Schemas ===
+# === Policy ===
 class PolicyBase(BaseModel):
-    lob: str
-    status: str | None = "active"
-
-    # Premium
-    base_premium: float
-    net_premium: float
-    tax: float  
-    sum_insured: float
-    
-    # Data Capture
-    license_plate: str
-    vin: str
-
+    lob: Optional[str] = None
+    status: Optional[str] = "active"
+    base_premium: Optional[float] = None
+    net_premium: Optional[float] = None
+    tax: Optional[float] = None
+    sum_insured: Optional[float] = None
+    license_plate: Optional[str] = None
+    vin: Optional[str] = None
     start_date: datetime
     end_date: datetime
+    policyholder_id: Optional[int] = None
 
-    policyholder_id: int
-    
 
 class PolicyCreate(PolicyBase):
     pass
 
+
 class PolicyPublic(PolicyBase):
     id: int
     organization_id: str
-    
+    created_at: datetime
+    updated_at: datetime
+
     model_config = ConfigDict(from_attributes=True)
