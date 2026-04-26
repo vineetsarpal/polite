@@ -1,148 +1,215 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional, List
-from src.database import get_db
-from src import schemas, models, utils, config
-from fastapi import Depends, status, HTTPException, Request
-from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorizationCredentials
+"""Clerk-backed authentication and authorization.
+
+The backend never issues tokens. It validates Clerk session tokens (RS256),
+reads claims (sub, org_id, org_role, org_permissions), and enforces tenancy
++ permission via FastAPI dependencies.
+
+Authorization is claims-only: never read role/permission state from the DB.
+The DB is consulted only to:
+1. Mirror Clerk identity for FK integrity.
+2. Sync-on-demand if the JWT references an entity not yet mirrored
+   (handles webhook-vs-API race during sign-up).
+"""
+from datetime import datetime, timezone
+from typing import List, Optional
+
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from jwt.exceptions import InvalidTokenError
-# from fastapi_auth0 import Auth0
-from jose import jwt, JWTError
-import os
-import httpx
+from clerk_backend_api import Clerk
+from clerk_backend_api.security.types import AuthenticateRequestOptions
 
-# === Auth0 ===
-# auth0 = Auth0(
-#     domain=config.AUTH0_DOMAIN,
-#     api_audience=config.AUTH0_AUDIENCE,
-#     scopes={'read:messages': ''}
-# )
-
-bearer_scheme = HTTPBearer()
-
-async def get_jwk():
-    async with httpx.AsyncClient() as client:
-        url = f"https://{config.AUTH0_DOMAIN}/.well-known/jwks.json"
-        res = await client.get(url)
-        res.raise_for_status()
-        return res.json()
-
-async def get_current_user_auth0(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)):
-    token = credentials.credentials
-    if not credentials:
-        return None # No bearer token provided, so Auth0 can't authenticate.
-    try:
-        jwks = await get_jwk()
-        unverified_header = jwt.get_unverified_header(token)
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "use": key["use"],
-                    "n": key["n"],
-                    "e": key["e"],
-                }
-        if not rsa_key:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Unable to find appropriate key",
-            )
-        payload = jwt.decode(
-            token,
-            rsa_key,
-            algorithms=config.AUTH0_ALGORITHM,
-            audience=config.AUTH0_AUDIENCE,
-            issuer=f"https://{config.AUTH0_DOMAIN}/",
-        )
-        # payload now contains all user claims, including 'sub'
-        return payload
-    
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-        ) from e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-        ) from e
+from src import config, models
+from src.database import get_db
 
 
-# === Basic Auth ===
-SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = os.getenv("ALGORITHM")
+_clerk: Optional[Clerk] = None
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='api/v1/auth/login')
 
-def authenticate_user(username: str, password: str, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if not user:
-        return False
-    if not utils.verify_password(password, user.password):
-        return False
-    return user
+def get_clerk() -> Clerk:
+    """Lazy singleton Clerk SDK client."""
+    global _clerk
+    if _clerk is None:
+        _clerk = Clerk(bearer_auth=config.CLERK_SECRET_KEY)
+    return _clerk
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
-async def get_current_user(token: Annotated[Optional[str], Depends(oauth2_scheme)], db: Session = Depends(get_db)):
-    if not token:
-        return None # No token provided for Basic Auth
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+def _authenticate(request: Request) -> dict:
+    """Validate Clerk session token and return claims dict.
+
+    Raises 401 on any failure.
+    """
+    clerk = get_clerk()
+    options = AuthenticateRequestOptions(
+        secret_key=config.CLERK_SECRET_KEY,
+        authorized_parties=None,
+        jwt_key=None,
     )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    state = clerk.authenticate_request(request, options)
+    if not state.is_signed_in:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing session token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    payload = state.payload or {}
+    return payload
 
-        # Extract username, organization, permissions from JWT
-        username = payload.get("sub")
-        organization_id: int | None = payload.get("organization_id")
-        permissions: List[str] = payload.get("permissions", [])
 
-        if username is None:
-            raise credentials_exception
-        token_data = schemas.TokenData(username=username, permissions=permissions, organization_id=organization_id)
+def _sync_user_on_demand(db: Session, user_id: str) -> models.User:
+    """Fetch user from Clerk and upsert to local DB."""
+    clerk = get_clerk()
+    clerk_user = clerk.users.get(user_id=user_id)
+    primary_email = None
+    if clerk_user.email_addresses:
+        for ea in clerk_user.email_addresses:
+            if ea.id == clerk_user.primary_email_address_id:
+                primary_email = ea.email_address
+                break
+    full_name = " ".join(filter(None, [clerk_user.first_name, clerk_user.last_name])) or None
+    is_active = not (getattr(clerk_user, "banned", False) or getattr(clerk_user, "locked", False))
 
-    except InvalidTokenError:
-        raise credentials_exception
-    except Exception as e:
-        print(f"Basic Auth validation error: {e}") 
-        raise credentials_exception from e
-    
-    user = db.query(models.User).filter(models.User.username == token_data.username).first()
+    user = db.get(models.User, user_id)
     if user is None:
-        raise credentials_exception
-    
-    # Attach permissions and organization to user object
-    user.permissions = permissions
-    user.organization_id = organization_id
-    
+        user = models.User(
+            id=user_id,
+            email=primary_email or f"{user_id}@unknown.local",
+            full_name=full_name,
+            is_active=is_active,
+            clerk_synced_at=datetime.now(timezone.utc),
+        )
+        db.add(user)
+    else:
+        if primary_email:
+            user.email = primary_email
+        user.full_name = full_name
+        user.is_active = is_active
+        user.clerk_synced_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
     return user
 
-async def get_current_active_user(current_user: schemas.UserPublic = Depends(get_current_user)):
-    if current_user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-    if not current_user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
-    return current_user
+
+def _sync_org_on_demand(db: Session, org_id: str) -> models.Organization:
+    clerk = get_clerk()
+    clerk_org = clerk.organizations.get(organization_id=org_id)
+    org = db.get(models.Organization, org_id)
+    if org is None:
+        org = models.Organization(
+            id=org_id,
+            name=clerk_org.name,
+            slug=clerk_org.slug,
+            clerk_synced_at=datetime.now(timezone.utc),
+        )
+        db.add(org)
+    else:
+        org.name = clerk_org.name
+        org.slug = clerk_org.slug
+        org.clerk_synced_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(org)
+    return org
 
 
-# === Check Permission ===
-async def check_permission(permission_to_check: str, user_permissions: List[str]):
-    if permission_to_check not in user_permissions:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions to perform this action!")
-    return True
+def _sync_membership_on_demand(
+    db: Session, user_id: str, org_id: str
+) -> Optional[models.Membership]:
+    clerk = get_clerk()
+    memberships_response = clerk.users.get_organization_memberships(user_id=user_id)
+    target = None
+    for m in (memberships_response.data or []):
+        if m.organization.id == org_id:
+            target = m
+            break
+    if target is None:
+        return None
+    existing = (
+        db.query(models.Membership)
+        .filter(
+            models.Membership.user_id == user_id,
+            models.Membership.organization_id == org_id,
+        )
+        .one_or_none()
+    )
+    if existing is None:
+        existing = models.Membership(
+            id=target.id,
+            user_id=user_id,
+            organization_id=org_id,
+            clerk_synced_at=datetime.now(timezone.utc),
+        )
+        db.add(existing)
+    else:
+        existing.clerk_synced_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(existing)
+    return existing
 
-# === Future: Common func to try both auth0 and basic auth and return user ===
+
+async def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
+    """Validate Clerk JWT, sync on demand, return User with attached claims.
+
+    Attaches: organization_id, org_role, permissions (all from JWT, not DB).
+    """
+    payload = _authenticate(request)
+
+    user_id = payload.get("sub")
+    org_id = payload.get("org_id")
+    org_role = payload.get("org_role")
+    permissions: List[str] = payload.get("org_permissions", []) or []
+
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Token missing subject")
+
+    user = db.get(models.User, user_id)
+    if user is None:
+        user = _sync_user_on_demand(db, user_id)
+
+    if user.deleted_at is not None:
+        raise HTTPException(status_code=403, detail="User has been deleted")
+
+    if org_id:
+        org = db.get(models.Organization, org_id)
+        if org is None:
+            org = _sync_org_on_demand(db, org_id)
+        if org.deleted_at is not None:
+            raise HTTPException(status_code=403, detail="Organization has been deleted")
+
+        membership = (
+            db.query(models.Membership)
+            .filter(
+                models.Membership.user_id == user_id,
+                models.Membership.organization_id == org_id,
+            )
+            .one_or_none()
+        )
+        if membership is None:
+            _sync_membership_on_demand(db, user_id, org_id)
+
+    user.organization_id = org_id  # type: ignore[attr-defined]
+    user.org_role = org_role  # type: ignore[attr-defined]
+    user.permissions = permissions  # type: ignore[attr-defined]
+    return user
+
+
+async def get_current_active_user(
+    user: models.User = Depends(get_current_user),
+) -> models.User:
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Inactive user")
+    if not getattr(user, "organization_id", None):
+        raise HTTPException(
+            status_code=403,
+            detail="No active organization context. Select or create an organization.",
+        )
+    return user
+
+
+def require_permission(perm: str):
+    """FastAPI dependency factory: enforces presence of `perm` in JWT claims."""
+
+    async def _check(user: models.User = Depends(get_current_active_user)) -> models.User:
+        if perm not in getattr(user, "permissions", []):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return user
+
+    return _check
