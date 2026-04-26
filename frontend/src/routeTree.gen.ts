@@ -11,6 +11,8 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
+import { Route as SignUpImport } from './routes/sign-up'
+import { Route as SignInImport } from './routes/sign-in'
 import { Route as PrivateImport } from './routes/private'
 import { Route as LoginImport } from './routes/login'
 import { Route as AboutImport } from './routes/about'
@@ -18,6 +20,9 @@ import { Route as DashboardRouteImport } from './routes/dashboard/route'
 import { Route as IndexImport } from './routes/index'
 import { Route as PermissionsIndexImport } from './routes/permissions/index'
 import { Route as DashboardIndexImport } from './routes/dashboard/index'
+import { Route as SignUpSplatImport } from './routes/sign-up.$'
+import { Route as SignInSplatImport } from './routes/sign-in.$'
+import { Route as DashboardOrganizationImport } from './routes/dashboard/organization'
 import { Route as DashboardUsersIndexImport } from './routes/dashboard/users/index'
 import { Route as DashboardRolesIndexImport } from './routes/dashboard/roles/index'
 import { Route as DashboardPoliciesIndexImport } from './routes/dashboard/policies/index'
@@ -27,9 +32,22 @@ import { Route as DashboardRolesRoleIdImport } from './routes/dashboard/roles/$r
 import { Route as DashboardPoliciesUpdateImport } from './routes/dashboard/policies/update'
 import { Route as DashboardPoliciesCreateImport } from './routes/dashboard/policies/create'
 import { Route as DashboardPoliciesPolicyIdImport } from './routes/dashboard/policies/$policyId'
+import { Route as DashboardOrganizationSplatImport } from './routes/dashboard/organization.$'
 import { Route as DashboardContactsContactIdImport } from './routes/dashboard/contacts/$contactId'
 
 // Create/Update Routes
+
+const SignUpRoute = SignUpImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const SignInRoute = SignInImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRoute,
+} as any)
 
 const PrivateRoute = PrivateImport.update({
   id: '/private',
@@ -70,6 +88,24 @@ const PermissionsIndexRoute = PermissionsIndexImport.update({
 const DashboardIndexRoute = DashboardIndexImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => DashboardRouteRoute,
+} as any)
+
+const SignUpSplatRoute = SignUpSplatImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SignUpRoute,
+} as any)
+
+const SignInSplatRoute = SignInSplatImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SignInRoute,
+} as any)
+
+const DashboardOrganizationRoute = DashboardOrganizationImport.update({
+  id: '/organization',
+  path: '/organization',
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 
@@ -127,6 +163,14 @@ const DashboardPoliciesPolicyIdRoute = DashboardPoliciesPolicyIdImport.update({
   getParentRoute: () => DashboardRouteRoute,
 } as any)
 
+const DashboardOrganizationSplatRoute = DashboardOrganizationSplatImport.update(
+  {
+    id: '/$',
+    path: '/$',
+    getParentRoute: () => DashboardOrganizationRoute,
+  } as any,
+)
+
 const DashboardContactsContactIdRoute = DashboardContactsContactIdImport.update(
   {
     id: '/contacts/$contactId',
@@ -174,6 +218,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivateImport
       parentRoute: typeof rootRoute
     }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInImport
+      parentRoute: typeof rootRoute
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpImport
+      parentRoute: typeof rootRoute
+    }
+    '/dashboard/organization': {
+      id: '/dashboard/organization'
+      path: '/organization'
+      fullPath: '/dashboard/organization'
+      preLoaderRoute: typeof DashboardOrganizationImport
+      parentRoute: typeof DashboardRouteImport
+    }
+    '/sign-in/$': {
+      id: '/sign-in/$'
+      path: '/$'
+      fullPath: '/sign-in/$'
+      preLoaderRoute: typeof SignInSplatImport
+      parentRoute: typeof SignInImport
+    }
+    '/sign-up/$': {
+      id: '/sign-up/$'
+      path: '/$'
+      fullPath: '/sign-up/$'
+      preLoaderRoute: typeof SignUpSplatImport
+      parentRoute: typeof SignUpImport
+    }
     '/dashboard/': {
       id: '/dashboard/'
       path: '/'
@@ -194,6 +273,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/contacts/$contactId'
       preLoaderRoute: typeof DashboardContactsContactIdImport
       parentRoute: typeof DashboardRouteImport
+    }
+    '/dashboard/organization/$': {
+      id: '/dashboard/organization/$'
+      path: '/$'
+      fullPath: '/dashboard/organization/$'
+      preLoaderRoute: typeof DashboardOrganizationSplatImport
+      parentRoute: typeof DashboardOrganizationImport
     }
     '/dashboard/policies/$policyId': {
       id: '/dashboard/policies/$policyId'
@@ -263,7 +349,21 @@ declare module '@tanstack/react-router' {
 
 // Create and export the route tree
 
+interface DashboardOrganizationRouteChildren {
+  DashboardOrganizationSplatRoute: typeof DashboardOrganizationSplatRoute
+}
+
+const DashboardOrganizationRouteChildren: DashboardOrganizationRouteChildren = {
+  DashboardOrganizationSplatRoute: DashboardOrganizationSplatRoute,
+}
+
+const DashboardOrganizationRouteWithChildren =
+  DashboardOrganizationRoute._addFileChildren(
+    DashboardOrganizationRouteChildren,
+  )
+
 interface DashboardRouteRouteChildren {
+  DashboardOrganizationRoute: typeof DashboardOrganizationRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
   DashboardContactsContactIdRoute: typeof DashboardContactsContactIdRoute
   DashboardPoliciesPolicyIdRoute: typeof DashboardPoliciesPolicyIdRoute
@@ -278,6 +378,7 @@ interface DashboardRouteRouteChildren {
 }
 
 const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardOrganizationRoute: DashboardOrganizationRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
   DashboardContactsContactIdRoute: DashboardContactsContactIdRoute,
   DashboardPoliciesPolicyIdRoute: DashboardPoliciesPolicyIdRoute,
@@ -295,15 +396,43 @@ const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
   DashboardRouteRouteChildren,
 )
 
+interface SignInRouteChildren {
+  SignInSplatRoute: typeof SignInSplatRoute
+}
+
+const SignInRouteChildren: SignInRouteChildren = {
+  SignInSplatRoute: SignInSplatRoute,
+}
+
+const SignInRouteWithChildren =
+  SignInRoute._addFileChildren(SignInRouteChildren)
+
+interface SignUpRouteChildren {
+  SignUpSplatRoute: typeof SignUpSplatRoute
+}
+
+const SignUpRouteChildren: SignUpRouteChildren = {
+  SignUpSplatRoute: SignUpSplatRoute,
+}
+
+const SignUpRouteWithChildren =
+  SignUpRoute._addFileChildren(SignUpRouteChildren)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/private': typeof PrivateRoute
+  '/sign-in': typeof SignInRouteWithChildren
+  '/sign-up': typeof SignUpRouteWithChildren
+  '/dashboard/organization': typeof DashboardOrganizationRouteWithChildren
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/permissions': typeof PermissionsIndexRoute
   '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
+  '/dashboard/organization/$': typeof DashboardOrganizationSplatRoute
   '/dashboard/policies/$policyId': typeof DashboardPoliciesPolicyIdRoute
   '/dashboard/policies/create': typeof DashboardPoliciesCreateRoute
   '/dashboard/policies/update': typeof DashboardPoliciesUpdateRoute
@@ -320,9 +449,15 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/private': typeof PrivateRoute
+  '/sign-in': typeof SignInRouteWithChildren
+  '/sign-up': typeof SignUpRouteWithChildren
+  '/dashboard/organization': typeof DashboardOrganizationRouteWithChildren
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
   '/dashboard': typeof DashboardIndexRoute
   '/permissions': typeof PermissionsIndexRoute
   '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
+  '/dashboard/organization/$': typeof DashboardOrganizationSplatRoute
   '/dashboard/policies/$policyId': typeof DashboardPoliciesPolicyIdRoute
   '/dashboard/policies/create': typeof DashboardPoliciesCreateRoute
   '/dashboard/policies/update': typeof DashboardPoliciesUpdateRoute
@@ -341,9 +476,15 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/login': typeof LoginRoute
   '/private': typeof PrivateRoute
+  '/sign-in': typeof SignInRouteWithChildren
+  '/sign-up': typeof SignUpRouteWithChildren
+  '/dashboard/organization': typeof DashboardOrganizationRouteWithChildren
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/permissions/': typeof PermissionsIndexRoute
   '/dashboard/contacts/$contactId': typeof DashboardContactsContactIdRoute
+  '/dashboard/organization/$': typeof DashboardOrganizationSplatRoute
   '/dashboard/policies/$policyId': typeof DashboardPoliciesPolicyIdRoute
   '/dashboard/policies/create': typeof DashboardPoliciesCreateRoute
   '/dashboard/policies/update': typeof DashboardPoliciesUpdateRoute
@@ -363,9 +504,15 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/private'
+    | '/sign-in'
+    | '/sign-up'
+    | '/dashboard/organization'
+    | '/sign-in/$'
+    | '/sign-up/$'
     | '/dashboard/'
     | '/permissions'
     | '/dashboard/contacts/$contactId'
+    | '/dashboard/organization/$'
     | '/dashboard/policies/$policyId'
     | '/dashboard/policies/create'
     | '/dashboard/policies/update'
@@ -381,9 +528,15 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/private'
+    | '/sign-in'
+    | '/sign-up'
+    | '/dashboard/organization'
+    | '/sign-in/$'
+    | '/sign-up/$'
     | '/dashboard'
     | '/permissions'
     | '/dashboard/contacts/$contactId'
+    | '/dashboard/organization/$'
     | '/dashboard/policies/$policyId'
     | '/dashboard/policies/create'
     | '/dashboard/policies/update'
@@ -400,9 +553,15 @@ export interface FileRouteTypes {
     | '/about'
     | '/login'
     | '/private'
+    | '/sign-in'
+    | '/sign-up'
+    | '/dashboard/organization'
+    | '/sign-in/$'
+    | '/sign-up/$'
     | '/dashboard/'
     | '/permissions/'
     | '/dashboard/contacts/$contactId'
+    | '/dashboard/organization/$'
     | '/dashboard/policies/$policyId'
     | '/dashboard/policies/create'
     | '/dashboard/policies/update'
@@ -421,6 +580,8 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   LoginRoute: typeof LoginRoute
   PrivateRoute: typeof PrivateRoute
+  SignInRoute: typeof SignInRouteWithChildren
+  SignUpRoute: typeof SignUpRouteWithChildren
   PermissionsIndexRoute: typeof PermissionsIndexRoute
 }
 
@@ -430,6 +591,8 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   LoginRoute: LoginRoute,
   PrivateRoute: PrivateRoute,
+  SignInRoute: SignInRouteWithChildren,
+  SignUpRoute: SignUpRouteWithChildren,
   PermissionsIndexRoute: PermissionsIndexRoute,
 }
 
@@ -448,6 +611,8 @@ export const routeTree = rootRoute
         "/about",
         "/login",
         "/private",
+        "/sign-in",
+        "/sign-up",
         "/permissions/"
       ]
     },
@@ -457,6 +622,7 @@ export const routeTree = rootRoute
     "/dashboard": {
       "filePath": "dashboard/route.tsx",
       "children": [
+        "/dashboard/organization",
         "/dashboard/",
         "/dashboard/contacts/$contactId",
         "/dashboard/policies/$policyId",
@@ -479,6 +645,33 @@ export const routeTree = rootRoute
     "/private": {
       "filePath": "private.tsx"
     },
+    "/sign-in": {
+      "filePath": "sign-in.tsx",
+      "children": [
+        "/sign-in/$"
+      ]
+    },
+    "/sign-up": {
+      "filePath": "sign-up.tsx",
+      "children": [
+        "/sign-up/$"
+      ]
+    },
+    "/dashboard/organization": {
+      "filePath": "dashboard/organization.tsx",
+      "parent": "/dashboard",
+      "children": [
+        "/dashboard/organization/$"
+      ]
+    },
+    "/sign-in/$": {
+      "filePath": "sign-in.$.tsx",
+      "parent": "/sign-in"
+    },
+    "/sign-up/$": {
+      "filePath": "sign-up.$.tsx",
+      "parent": "/sign-up"
+    },
     "/dashboard/": {
       "filePath": "dashboard/index.tsx",
       "parent": "/dashboard"
@@ -489,6 +682,10 @@ export const routeTree = rootRoute
     "/dashboard/contacts/$contactId": {
       "filePath": "dashboard/contacts/$contactId.tsx",
       "parent": "/dashboard"
+    },
+    "/dashboard/organization/$": {
+      "filePath": "dashboard/organization.$.tsx",
+      "parent": "/dashboard/organization"
     },
     "/dashboard/policies/$policyId": {
       "filePath": "dashboard/policies/$policyId.tsx",

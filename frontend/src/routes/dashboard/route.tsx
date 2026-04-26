@@ -1,15 +1,35 @@
+import { useAuth, useOrganization, RedirectToSignIn, RedirectToCreateOrganization } from '@clerk/clerk-react'
 import Sidebar from '@/components/Sidebar'
 import { useColorModeValue } from '@/components/ui/color-mode'
-import { Grid, GridItem, Box } from '@chakra-ui/react'
+import { Grid, GridItem, Box, Flex, Spinner } from '@chakra-ui/react'
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/dashboard')({
-  component: RouteComponent,
+  component: DashboardLayout,
 })
 
-function RouteComponent() {
+function DashboardLayout() {
+  const { isLoaded: authLoaded, isSignedIn } = useAuth()
+  const { isLoaded: orgLoaded, organization } = useOrganization()
+
   const bgMain = useColorModeValue('', 'gray.950')
-  const bgSide = useColorModeValue('gray.50','')
+  const bgSide = useColorModeValue('gray.50', '')
+
+  if (!authLoaded || !orgLoaded) {
+    return (
+      <Flex h="100vh" align="center" justify="center">
+        <Spinner />
+      </Flex>
+    )
+  }
+
+  if (!isSignedIn) {
+    return <RedirectToSignIn />
+  }
+
+  if (!organization) {
+    return <RedirectToCreateOrganization />
+  }
 
   return (
     <>
@@ -18,21 +38,21 @@ function RouteComponent() {
       >
         <GridItem
           as="aside"
-          w={{ base: 0, md: 'auto' }} 
+          w={{ base: 0, md: 'auto' }}
           borderRight={{ base: 'none', md: '1px' }}
           borderColor={{ base: 'transparent', md: 'gray.200' }}
           overflowY="auto"
-          display={{ base: 'none', md: 'block' }} // Hide sidebar on mobile
+          display={{ base: 'none', md: 'block' }}
           bg={bgSide}
         >
           <Sidebar />
         </GridItem>
 
         <GridItem
-          as="main" 
+          as="main"
           p={{ base: 4, md: 10 }}
-          overflow="auto" 
-          bg={bgMain} 
+          overflow="auto"
+          bg={bgMain}
           borderRadius={"2xl"}
           mr={2}
           mb={2}
