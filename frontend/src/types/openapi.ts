@@ -4,32 +4,52 @@
  */
 
 export interface paths {
-    "/api/v1/auth/login": {
+    "/metrics": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Metrics
+         * @description Endpoint that serves Prometheus metrics.
+         */
+        get: operations["metrics_metrics_get"];
         put?: never;
-        /** Login For Access Token */
-        post: operations["login_for_access_token_api_v1_auth_login_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/users/me/": {
+    "/": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Read Users Me */
-        get: operations["read_users_me_api_v1_auth_users_me__get"];
+        /** Root */
+        get: operations["root__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_users_me_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -45,140 +65,17 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Users */
-        get: operations["get_users_api_v1_users__get"];
+        /**
+         * List Org Members
+         * @description List users in the caller's active organization.
+         *
+         *     Requires `org:contacts:read` as a coarse 'can see other org members' gate.
+         *     Adjust to a dedicated permission if/when one is added.
+         */
+        get: operations["list_org_members_api_v1_users__get"];
         put?: never;
-        /** Create User */
-        post: operations["create_user_api_v1_users__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{user_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get User */
-        get: operations["get_user_api_v1_users__user_id__get"];
-        /** Update User */
-        put: operations["update_user_api_v1_users__user_id__put"];
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/{user_id}/roles": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get User Roles */
-        get: operations["get_user_roles_api_v1_users__user_id__roles_get"];
-        put?: never;
-        /** Update User Roles */
-        post: operations["update_user_roles_api_v1_users__user_id__roles_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/roles/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Roles */
-        get: operations["get_roles_api_v1_roles__get"];
-        put?: never;
-        /** Create Role */
-        post: operations["create_role_api_v1_roles__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/roles/{role_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Role */
-        get: operations["get_role_api_v1_roles__role_id__get"];
-        /** Update Role */
-        put: operations["update_role_api_v1_roles__role_id__put"];
-        post?: never;
-        /** Delete Role */
-        delete: operations["delete_role_api_v1_roles__role_id__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/roles/{role_id}/permissions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Role Permissions */
-        get: operations["get_role_permissions_api_v1_roles__role_id__permissions_get"];
-        put?: never;
-        /** Update Role Permissions */
-        post: operations["update_role_permissions_api_v1_roles__role_id__permissions_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/permissions/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Permissions */
-        get: operations["get_permissions_api_v1_permissions__get"];
-        put?: never;
-        /** Create Permission */
-        post: operations["create_permission_api_v1_permissions__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/permissions/{permission_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Permission */
-        get: operations["get_permission_api_v1_permissions__permission_id__get"];
-        /** Update Permission */
-        put: operations["update_permission_api_v1_permissions__permission_id__put"];
-        post?: never;
-        /** Delete Permission */
-        delete: operations["delete_permission_api_v1_permissions__permission_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -191,8 +88,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Contacts */
-        get: operations["get_contacts_api_v1_contacts__get"];
+        /** List Contacts */
+        get: operations["list_contacts_api_v1_contacts__get"];
         put?: never;
         /** Create Contact */
         post: operations["create_contact_api_v1_contacts__post"];
@@ -214,7 +111,8 @@ export interface paths {
         /** Update Contact */
         put: operations["update_contact_api_v1_contacts__contact_id__put"];
         post?: never;
-        delete?: never;
+        /** Delete Contact */
+        delete: operations["delete_contact_api_v1_contacts__contact_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -227,8 +125,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Policies */
-        get: operations["get_policies_api_v1_policies__get"];
+        /** List Policies */
+        get: operations["list_policies_api_v1_policies__get"];
         put?: never;
         /** Create Policy */
         post: operations["create_policy_api_v1_policies__post"];
@@ -257,17 +155,17 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/": {
+    "/api/webhooks/clerk": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Root */
-        get: operations["root__get"];
+        get?: never;
         put?: never;
-        post?: never;
+        /** Clerk Webhook */
+        post: operations["clerk_webhook_api_webhooks_clerk_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -278,120 +176,106 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** Body_login_for_access_token_api_v1_auth_login_post */
-        Body_login_for_access_token_api_v1_auth_login_post: {
-            /** Grant Type */
-            grant_type?: string | null;
-            /** Username */
-            username: string;
-            /** Password */
-            password: string;
-            /**
-             * Scope
-             * @default
-             */
-            scope: string;
-            /** Client Id */
-            client_id?: string | null;
-            /** Client Secret */
-            client_secret?: string | null;
-        };
         /** ContactCreate */
         ContactCreate: {
             /** Type */
-            type: string;
+            type?: ("individual" | "company") | null;
             /** First Name */
-            first_name: string;
+            first_name?: string | null;
             /** Last Name */
-            last_name: string;
+            last_name?: string | null;
             /** Email */
             email?: string | null;
             /** Dob */
             dob?: string | null;
-        };
-        /** ContactPublic */
-        ContactPublic: {
-            /** Type */
-            type: string;
-            /** First Name */
-            first_name: string;
-            /** Last Name */
-            last_name: string;
-            /** Email */
-            email?: string | null;
-            /** Dob */
-            dob?: string | null;
-            /** Id */
-            id: number;
             /**
              * Is Active
              * @default true
              */
-            is_active: boolean | null;
+            is_active: boolean;
+        };
+        /** ContactPublic */
+        ContactPublic: {
+            /** Type */
+            type?: ("individual" | "company") | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Dob */
+            dob?: string | null;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Id */
+            id: number;
+            /** Organization Id */
+            organization_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
-        /** PermissionCreate */
-        PermissionCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-        };
-        /** PermissionPublic */
-        PermissionPublic: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
+        /**
+         * OrgMember
+         * @description User listed within their org (joins users + memberships).
+         */
+        OrgMember: {
             /** Id */
-            id: number;
+            id: string;
             /**
-             * Created At
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Full Name */
+            full_name?: string | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Membership Id */
+            membership_id: string;
+            /**
+             * Membership Created At
              * Format: date-time
              */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-        };
-        /** PermissionWithAssignment */
-        PermissionWithAssignment: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /** Id */
-            id: number;
-            /** Assigned */
-            assigned: boolean;
+            membership_created_at: string;
         };
         /** PolicyCreate */
         PolicyCreate: {
             /** Lob */
-            lob: string;
+            lob?: string | null;
             /**
              * Status
              * @default active
              */
             status: string | null;
             /** Base Premium */
-            base_premium: number;
+            base_premium?: number | null;
             /** Net Premium */
-            net_premium: number;
+            net_premium?: number | null;
             /** Tax */
-            tax: number;
+            tax?: number | null;
             /** Sum Insured */
-            sum_insured: number;
+            sum_insured?: number | null;
             /** License Plate */
-            license_plate: string;
+            license_plate?: string | null;
             /** Vin */
-            vin: string;
+            vin?: string | null;
             /**
              * Start Date
              * Format: date-time
@@ -403,29 +287,29 @@ export interface components {
              */
             end_date: string;
             /** Policyholder Id */
-            policyholder_id: number;
+            policyholder_id?: number | null;
         };
         /** PolicyPublic */
         PolicyPublic: {
             /** Lob */
-            lob: string;
+            lob?: string | null;
             /**
              * Status
              * @default active
              */
             status: string | null;
             /** Base Premium */
-            base_premium: number;
+            base_premium?: number | null;
             /** Net Premium */
-            net_premium: number;
+            net_premium?: number | null;
             /** Tax */
-            tax: number;
+            tax?: number | null;
             /** Sum Insured */
-            sum_insured: number;
+            sum_insured?: number | null;
             /** License Plate */
-            license_plate: string;
+            license_plate?: string | null;
             /** Vin */
-            vin: string;
+            vin?: string | null;
             /**
              * Start Date
              * Format: date-time
@@ -437,25 +321,11 @@ export interface components {
              */
             end_date: string;
             /** Policyholder Id */
-            policyholder_id: number;
+            policyholder_id?: number | null;
             /** Id */
             id: number;
-        };
-        /** RoleCreate */
-        RoleCreate: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-        };
-        /** RolePublic */
-        RolePublic: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /** Id */
-            id: number;
+            /** Organization Id */
+            organization_id: string;
             /**
              * Created At
              * Format: date-time
@@ -466,59 +336,23 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /**
-             * Users
-             * @default []
-             */
-            users: components["schemas"]["UserPublic"][];
-            /**
-             * Permissions
-             * @default []
-             */
-            permissions: components["schemas"]["PermissionPublic"][];
-        };
-        /** RoleWithAssignment */
-        RoleWithAssignment: {
-            /** Name */
-            name: string;
-            /** Description */
-            description?: string | null;
-            /** Id */
-            id: number;
-            /** Assigned */
-            assigned?: boolean | null;
-        };
-        /** Token */
-        Token: {
-            /** Access Token */
-            access_token: string;
-            /** Token Type */
-            token_type: string;
-        };
-        /** UserCreate */
-        UserCreate: {
-            /** Username */
-            username: string;
-            /** Email */
-            email?: string | null;
-            /** Full Name */
-            full_name?: string | null;
         };
         /** UserPublic */
         UserPublic: {
-            /** Username */
-            username: string;
-            /** Email */
-            email?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
             /** Full Name */
             full_name?: string | null;
-            /** Id */
-            id: number;
             /**
              * Is Active
              * @default true
              */
-            is_active: boolean | null;
+            is_active: boolean;
             /**
              * Created At
              * Format: date-time
@@ -538,6 +372,10 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -548,18 +386,14 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    login_for_access_token_api_v1_auth_login_post: {
+    metrics_metrics_get: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": components["schemas"]["Body_login_for_access_token_api_v1_auth_login_post"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -567,21 +401,32 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Token"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": unknown;
                 };
             };
         };
     };
-    read_users_me_api_v1_auth_users_me__get: {
+    root__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    me_api_v1_users_me_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -601,12 +446,29 @@ export interface operations {
             };
         };
     };
-    get_users_api_v1_users__get: {
+    list_org_members_api_v1_users__get: {
         parameters: {
-            query?: {
-                skip?: number;
-                limit?: number;
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgMember"][];
+                };
             };
+        };
+    };
+    list_contacts_api_v1_contacts__get: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -619,603 +481,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_user_api_v1_users__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_user_api_v1_users__user_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_user_api_v1_users__user_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_user_roles_api_v1_users__user_id__roles_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleWithAssignment"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_user_roles_api_v1_users__user_id__roles_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": number[];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_roles_api_v1_roles__get: {
-        parameters: {
-            query?: {
-                skip?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_role_api_v1_roles__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RolePublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_role_api_v1_roles__role_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RolePublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_role_api_v1_roles__role_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RoleCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RolePublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_role_api_v1_roles__role_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_role_permissions_api_v1_roles__role_id__permissions_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionWithAssignment"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_role_permissions_api_v1_roles__role_id__permissions_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": number[];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_permissions_api_v1_permissions__get: {
-        parameters: {
-            query?: {
-                skip?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_permission_api_v1_permissions__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PermissionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionPublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_permission_api_v1_permissions__permission_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                permission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionPublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_permission_api_v1_permissions__permission_id__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                permission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PermissionCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PermissionPublic"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_permission_api_v1_permissions__permission_id__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                permission_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_contacts_api_v1_contacts__get: {
-        parameters: {
-            query?: {
-                skip?: number;
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ContactPublic"][];
                 };
             };
         };
@@ -1239,7 +505,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ContactPublic"];
                 };
             };
             /** @description Validation Error */
@@ -1319,12 +585,38 @@ export interface operations {
             };
         };
     };
-    get_policies_api_v1_policies__get: {
+    delete_contact_api_v1_contacts__contact_id__delete: {
         parameters: {
-            query?: {
-                skip?: number;
-                limit?: number;
+            query?: never;
+            header?: never;
+            path: {
+                contact_id: number;
             };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_policies_api_v1_policies__get: {
+        parameters: {
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -1337,16 +629,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["PolicyPublic"][];
                 };
             };
         };
@@ -1462,13 +745,11 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Successful Response */
-            200: {
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": unknown;
-                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1481,7 +762,7 @@ export interface operations {
             };
         };
     };
-    root__get: {
+    clerk_webhook_api_webhooks_clerk_post: {
         parameters: {
             query?: never;
             header?: never;
