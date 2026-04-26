@@ -1,61 +1,56 @@
-from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, status, Request, Security
-from sqlalchemy.orm import Session
-from src.database import engine, Base, get_db
-from src.routers.v1 import user, auth, policy, contact, role, permission
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import os
-from src import config, security
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-# from fastapi_auth0 import Auth0, Auth0User
+from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 
-app = FastAPI()
+from src.database import Base, engine
+from src.routers.v1 import contact, policy, user
+from src.routers.webhooks import clerk as clerk_webhook
+
+load_dotenv()
+
+app = FastAPI(title="Polite API")
 
 API_BASE_PREFIX = "/api"
 
-# Prometheus - Expose metrics at /metrics
+# Prometheus
 Instrumentator().instrument(app).expose(app)
 
-# Create tables on startup
+# Create tables on startup (Alembic lands in sub-project #2)
 Base.metadata.create_all(bind=engine)
 
-
-# Mount static files
+# Static
 current_dir = os.path.dirname(__file__)
 public_dir = os.path.abspath(os.path.join(current_dir, "..", "public", "images"))
 app.mount("/static", StaticFiles(directory=public_dir), name="static")
 
-# Frontend URL
+# CORS
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL],
+    allow_origins=[FRONTEND_URL] if FRONTEND_URL else [],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     return FileResponse(os.path.join(public_dir, "favicon.ico"))
 
-# === Routers ===
-app.include_router(auth.v1_router, prefix=API_BASE_PREFIX)
-app.include_router(user.v1_router, prefix=API_BASE_PREFIX)
-app.include_router(role.v1_router, prefix=API_BASE_PREFIX)
-app.include_router(permission.v1_router, prefix=API_BASE_PREFIX)
-app.include_router(contact.v1_router, prefix=API_BASE_PREFIX)
-app.include_router(policy.v1_router, prefix=API_BASE_PREFIX)
-
-
-# # Auth0 private endpoint test
-# @app.get("/api/private-auth0", dependencies=[Depends(security.auth0.implicit_scheme)])
-# def private(user = Depends(security.get_current_user_auth0)):
-#     return {"user": user}
 
 @app.get("/")
 async def root():
     return {"message": "Hello World!"}
+
+
+# Routers
+app.include_router(user.v1_router, prefix=API_BASE_PREFIX)
+app.include_router(contact.v1_router, prefix=API_BASE_PREFIX)
+app.include_router(policy.v1_router, prefix=API_BASE_PREFIX)
+app.include_router(clerk_webhook.v1_router, prefix=API_BASE_PREFIX)
