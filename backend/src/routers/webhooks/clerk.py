@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from svix.webhooks import Webhook, WebhookVerificationError
 
 from src import config, models
-from src.database import get_db
+from src.database import get_admin_db
 
 
 v1_router = APIRouter(prefix="/webhooks", tags=["webhooks"])
@@ -48,7 +48,7 @@ def _is_stale(event_ts: datetime, synced_at: datetime | None) -> bool:
 
 
 @v1_router.post("/clerk")
-async def clerk_webhook(request: Request, db: Session = Depends(get_db)):
+async def clerk_webhook(request: Request, db: Session = Depends(get_admin_db)):
     raw = await request.body()
     event = _verify(request, raw)
     event_type = event.get("type")

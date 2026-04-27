@@ -18,7 +18,7 @@ from datetime import datetime, timezone, timedelta
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src import models  # noqa: E402
-from src.database import SessionLocal  # noqa: E402
+from src.database import AdminSessionLocal  # noqa: E402
 
 
 def main():
@@ -26,7 +26,7 @@ def main():
     cutoff = datetime.now(timezone.utc) - timedelta(days=grace_days)
     print(f"Hard-deleting rows with deleted_at < {cutoff.isoformat()} (grace={grace_days}d)")
 
-    db = SessionLocal()
+    db = AdminSessionLocal()
     try:
         org_q = (
             db.query(models.Organization)

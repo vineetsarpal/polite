@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src import models, schemas
-from src.database import get_db
+from src.database import get_tenant_db
 from src.security import get_current_active_user, require_permission
 
 v1_router = APIRouter(prefix="/v1/policies", tags=["policies"])
@@ -17,7 +17,7 @@ v1_router = APIRouter(prefix="/v1/policies", tags=["policies"])
 )
 def list_policies(
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     return (
         db.query(models.Policy)
@@ -35,7 +35,7 @@ def list_policies(
 def get_policy(
     policy_id: int,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     p = (
         db.query(models.Policy)
@@ -59,7 +59,7 @@ def get_policy(
 def create_policy(
     payload: schemas.PolicyCreate,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     data = payload.model_dump()
     data["organization_id"] = current_user.organization_id
@@ -92,7 +92,7 @@ def update_policy(
     policy_id: int,
     payload: schemas.PolicyCreate,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     p = (
         db.query(models.Policy)
@@ -119,7 +119,7 @@ def update_policy(
 def delete_policy(
     policy_id: int,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     p = (
         db.query(models.Policy)

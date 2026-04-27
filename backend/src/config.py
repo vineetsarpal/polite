@@ -7,6 +7,8 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")  # legacy; will be removed once login route is deleted
 ALGORITHM = os.getenv("ALGORITHM")
 DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL_ADMIN = os.getenv("DATABASE_URL_ADMIN")
+DATABASE_URL_MIGRATIONS = os.getenv("DATABASE_URL_MIGRATIONS")
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
