@@ -7,7 +7,6 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from src.database import Base, engine
 from src.routers.v1 import contact, policy, user
 from src.routers.webhooks import clerk as clerk_webhook
 
@@ -19,9 +18,6 @@ API_BASE_PREFIX = "/api"
 
 # Prometheus
 Instrumentator().instrument(app).expose(app)
-
-# Create tables on startup (Alembic lands in sub-project #2)
-Base.metadata.create_all(bind=engine)
 
 # Static
 current_dir = os.path.dirname(__file__)
