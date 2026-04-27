@@ -3,7 +3,9 @@
 Provisions one demo organization + one demo admin user via Clerk Backend API,
 then seeds sample contacts and policies for that org. Idempotent: safe to re-run.
 
-Required env: CLERK_SECRET_KEY, DATABASE_URL.
+Required env: CLERK_SECRET_KEY, DATABASE_URL_MIGRATIONS, DATABASE_URL_ADMIN,
+POLITE_APP_DB_PASSWORD, POLITE_ADMIN_DB_PASSWORD (the latter two are read by
+the RLS migration when it (re)applies role passwords).
 
 WARNING: drops and recreates app schema. Dev only.
 """
@@ -13,16 +15,19 @@ import os
 import sys
 from datetime import datetime, timezone, timedelta
 
+from alembic import command as alembic_command
+from alembic.config import Config as AlembicConfig
 from clerk_backend_api import Clerk
 from clerk_backend_api.models.getuserlistop import GetUserListRequest
 from clerk_backend_api.models.createorganizationop import CreateOrganizationRequestBody
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 # Project root on path so `from src...` resolves when run as `uv run python scripts/seed_db.py`
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src import config, models  # noqa: E402
-from src.database import Base, engine, SessionLocal  # noqa: E402
+from src.database import AdminSessionLocal  # noqa: E402
 
 DEMO_ORG_NAME = "Polite Demo Insurance"
 DEMO_ORG_SLUG = "polite-demo"
@@ -33,9 +38,23 @@ DEMO_ADMIN_LAST = "Admin"
 
 
 def reset_schema():
-    print("Dropping and recreating schema...")
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    """Drop the public schema and re-apply all Alembic migrations.
+
+    Roles created by the RLS migration survive (they live in pg_authid, not
+    pg_namespace). The migration's idempotent role block re-applies passwords
+    from POLITE_APP_DB_PASSWORD / POLITE_ADMIN_DB_PASSWORD env vars.
+    """
+    print("Dropping and recreating public schema...")
+    owner_engine = create_engine(config.DATABASE_URL_MIGRATIONS)
+    with owner_engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+
+    print("Applying Alembic migrations...")
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    alembic_cfg = AlembicConfig(os.path.join(repo_root, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(repo_root, "alembic"))
+    alembic_command.upgrade(alembic_cfg, "head")
 
 
 def upsert_clerk_user(clerk: Clerk):
@@ -148,7 +167,7 @@ def main():
     clerk_user = upsert_clerk_user(clerk)
     clerk_org = upsert_clerk_org(clerk, admin_user_id=clerk_user.id)
 
-    db: Session = SessionLocal()
+    db: Session = AdminSessionLocal()
     try:
         mirror_into_db(db, clerk_user, clerk_org)
         seed_domain(db, clerk_org.id)
