@@ -130,7 +130,7 @@ class Policy(Base):
         onupdate=text("now()"),
     )
 
-    policyholder_id = Column(Integer, ForeignKey("contacts.id"))
+    policyholder_id = Column(Integer, ForeignKey("contacts.id", ondelete="SET NULL"))
     organization_id = Column(
         String, ForeignKey("organizations.id"), index=True, nullable=False
     )
