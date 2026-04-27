@@ -16,7 +16,7 @@ The two apps communicate at runtime via HTTP; in dev the frontend points at the 
 Polite is being moved to a managed, production-grade stack across **8 sub-projects** (each with its own spec → plan → implementation cycle). The full roadmap and architecture rationale live in `docs.local/roadmap.md` (gitignored — a local working document):
 
 1. **Identity & auth migration → Clerk** — *complete (PR #1, tag `v0.2.0-auth-migration`)*
-2. Database migration (managed Postgres + Alembic + RLS)
+2. **Database migration (managed Postgres on Neon + Alembic + RLS tenant isolation)** — *complete (PR #2, tag `v0.3.0-db-migration`)*
 3. Hosting & deploy (Render/Fly + Vercel + GitHub Actions)
 4. Object storage (policy document upload)
 5. Observability (Sentry + Better Stack; decommission self-hosted Prom)
@@ -32,12 +32,16 @@ Polite is being moved to a managed, production-grade stack across **8 sub-projec
 uv sync                                # one-time and after dep changes; creates .venv/
 
 uv run fastapi dev src/main.py         # dev server with reload (http://localhost:8000)
-uv run python scripts/seed_db.py       # DROPS and recreates all tables, then seeds demo data via Clerk Backend API
+uv run alembic upgrade head            # apply pending migrations (uses DATABASE_URL_MIGRATIONS)
+uv run alembic revision --autogenerate -m "<slug>"   # generate a new migration; ALWAYS review by hand before applying
+uv run python scripts/seed_db.py       # DROPS public schema, runs alembic upgrade head, seeds demo data via Clerk Backend API
 uv run python scripts/purge_deleted.py # hard-delete soft-deleted rows past the grace period (default 30 days)
 docker compose up -d                   # spins up Prometheus + Grafana + Alertmanager (NOT the API; legacy, decommissioned in sub-project #5)
 ```
 
-Dependencies are managed via `pyproject.toml` + `uv.lock` (uv); there is no `requirements.txt`. Add deps with `uv add <pkg>` (don't hand-edit the lock). Tables are auto-created on app startup via `Base.metadata.create_all` in `src/main.py` — there is no Alembic yet (lands in sub-project #2). Schema changes currently require dropping the DB or re-running `seed_db.py`.
+Dependencies are managed via `pyproject.toml` + `uv.lock` (uv); there is no `requirements.txt`. Add deps with `uv add <pkg>` (don't hand-edit the lock).
+
+Schema is managed by Alembic (`backend/alembic/`). New migrations: `uv run alembic revision --autogenerate -m "<slug>"`, then **review the generated file by hand** before applying. RLS policies, GRANTs, and role definitions are **not autogenerable** — write those by hand inside the generated revision (see `20260427_..._enable_rls_and_fix_policyholder_fk.py` for the pattern).
 
 For local Clerk webhook delivery, run `ngrok http 8000` and register the public URL at Clerk dashboard → Webhooks (events: `user.*`, `organization.*`, `organizationMembership.*`).
 
@@ -71,8 +75,8 @@ There is no automated test suite in either app. This gap is acknowledged and wil
   - `get_current_active_user` — refuses inactive users or missing org context.
   - `require_permission(perm)` — FastAPI dependency factory. Use as `dependencies=[Depends(require_permission("org:policies:create"))]`.
 - `src/routers/webhooks/clerk.py` — Svix-verified ingress at `POST /api/webhooks/clerk`. Idempotent, order-tolerant handlers for `user.*`, `organization.*`, `organizationMembership.*` events.
-- `src/database.py` — single SQLAlchemy `engine`/`SessionLocal`. `get_db()` is the FastAPI dependency.
-- `src/config.py` — env loading. All Clerk env vars (`CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `CLERK_JWT_ISSUER`) plus app-level (`DATABASE_URL`, `FRONTEND_URL`).
+- `src/database.py` — two SQLAlchemy engines bound to two distinct Postgres roles, plus three FastAPI session dependencies. See **Tenant isolation via RLS** below.
+- `src/config.py` — env loading. All Clerk env vars (`CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `CLERK_JWT_ISSUER`) plus three Postgres URLs (`DATABASE_URL`, `DATABASE_URL_ADMIN`, `DATABASE_URL_MIGRATIONS`) and `FRONTEND_URL`.
 - Observability: `prometheus-fastapi-instrumentator` exposes `/metrics`; `docker-compose.yml` at backend root runs the Prometheus/Grafana/Alertmanager stack independently. (Slated for replacement in sub-project #5.)
 
 ### Multi-tenancy and authorization (load-bearing pattern)
@@ -88,6 +92,24 @@ data["organization_id"] = current_user.organization_id
 List/get/update queries always filter by `Model.organization_id == current_user.organization_id`. Preserve this on any new endpoint touching org-scoped tables (`Contact`, `Policy`, `Membership`). The two gates — `require_permission(...)` (what action) and the org_id filter (whose data) — are independent and both required.
 
 When a JWT references a user/org/membership not yet mirrored in the DB (webhook-vs-API race during sign-up), `get_current_user` does a sync-on-demand fetch from the Clerk Backend API and upserts. Webhooks are an *optimization*, not a correctness dependency.
+
+### Tenant isolation via Postgres RLS (defense-in-depth)
+
+The app-layer `WHERE organization_id = current_user.organization_id` filter is one of two enforcement layers; the second is **Postgres Row-Level Security**. `organizations`, `memberships`, `contacts`, `policies` all have `FORCE ROW LEVEL SECURITY` with a `tenant_isolation` policy that compares `organization_id` (or `id` for the `organizations` table) to `current_setting('app.current_org_id', true)`. The GUC is set per-request via `SET LOCAL` inside the request transaction; `current_setting(..., true)` returns NULL when unset, which by predicate evaluation hides every row — **fail-closed**.
+
+Three Postgres roles, two engines, three FastAPI dependencies:
+
+| Role | URL env | Endpoint | RLS | FastAPI dep | Used by |
+|---|---|---|---|---|---|
+| `polite_app` | `DATABASE_URL` | pooler (`-pooler` host, transaction mode) | applies | `get_tenant_db` | tenant-scoped request handlers |
+| `polite_admin` | `DATABASE_URL_ADMIN` | direct | bypasses | `get_admin_db` | webhook handler, scripts, `get_current_user`'s sync-on-demand |
+| project owner (e.g., `neondb_owner`) | `DATABASE_URL_MIGRATIONS` | direct | bypasses (table owner) | — (Alembic only) | migrations |
+
+**Conventions to preserve:**
+- `Depends(get_tenant_db)` for any route handler that touches an org-scoped table. The dependency reads `current_org_id_var` (set by `get_current_user` after JWT validation) and issues `SET LOCAL app.current_org_id = <oid>` in an explicit transaction.
+- `Depends(get_admin_db)` only in `routers/webhooks/` and `scripts/`. Never import it into a v1 router.
+- In handler signatures, declare `current_user` (or any `Depends(require_permission(...))`) **before** `db: Session = Depends(get_tenant_db)`. FastAPI resolves dependencies in declaration order; auth must run first so the ContextVar is populated before `get_tenant_db` consumes it.
+- `get_db()` exists in `database.py` for completeness but is essentially unused — it returns a `polite_app` session with no GUC set, so RLS sees zero rows. Don't use it in new code.
 
 ### Soft-delete with grace period
 
@@ -110,7 +132,11 @@ When a JWT references a user/org/membership not yet mirrored in the DB (webhook-
 ### Required env vars
 
 Backend (`.env` in `backend/`):
-- `DATABASE_URL`, `FRONTEND_URL`
+- `DATABASE_URL` — `polite_app` role on the **pooler** endpoint (request handlers)
+- `DATABASE_URL_ADMIN` — `polite_admin` role on the **direct** endpoint (webhooks, scripts)
+- `DATABASE_URL_MIGRATIONS` — project owner on the **direct** endpoint (Alembic only)
+- `POLITE_APP_DB_PASSWORD`, `POLITE_ADMIN_DB_PASSWORD` — read by the RLS migration when (re)applying role passwords
+- `FRONTEND_URL`
 - `CLERK_SECRET_KEY` (sk_test_...)
 - `CLERK_PUBLISHABLE_KEY` (pk_test_..., same value as the frontend's)
 - `CLERK_WEBHOOK_SECRET` (whsec_..., from Clerk dashboard → Webhooks after registering an endpoint)
