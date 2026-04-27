@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from src import models, schemas
-from src.database import get_db
+from src.database import get_tenant_db
 from src.security import get_current_active_user, require_permission
 
 v1_router = APIRouter(prefix="/v1/users", tags=["users"])
@@ -24,7 +24,7 @@ def me(current_user: models.User = Depends(get_current_active_user)):
 @v1_router.get("/", response_model=List[schemas.OrgMember])
 def list_org_members(
     current_user: models.User = Depends(require_permission("org:contacts:read")),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     """List users in the caller's active organization.
 

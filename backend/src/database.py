@@ -3,7 +3,7 @@
 Three connection roles, two engines:
 
 - `engine_app` (DATABASE_URL, role `polite_app`, pooler endpoint):
-    Used by request handlers via `get_authed_db`. RLS applies.
+    Used by request handlers via `get_tenant_db`. RLS applies.
     Each session sets `app.current_org_id` via `SET LOCAL` inside an
     explicit transaction.
 - `engine_admin` (DATABASE_URL_ADMIN, role `polite_admin`, direct endpoint):
@@ -56,7 +56,7 @@ def get_admin_db() -> Session:
         db.close()
 
 
-def get_authed_db() -> Session:
+def get_tenant_db() -> Session:
     """Tenant-scoped session for request handlers.
 
     Wraps the session in an explicit transaction and issues `SET LOCAL

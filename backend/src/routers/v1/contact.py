@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from src import models, schemas
-from src.database import get_db
+from src.database import get_tenant_db
 from src.security import get_current_active_user, require_permission
 
 v1_router = APIRouter(prefix="/v1/contacts", tags=["contacts"])
@@ -17,7 +17,7 @@ v1_router = APIRouter(prefix="/v1/contacts", tags=["contacts"])
 )
 def list_contacts(
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     return (
         db.query(models.Contact)
@@ -35,7 +35,7 @@ def list_contacts(
 def get_contact(
     contact_id: int,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     c = (
         db.query(models.Contact)
@@ -59,7 +59,7 @@ def get_contact(
 def create_contact(
     payload: schemas.ContactCreate,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     data = payload.model_dump()
     data["organization_id"] = current_user.organization_id
@@ -79,7 +79,7 @@ def update_contact(
     contact_id: int,
     payload: schemas.ContactCreate,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     c = (
         db.query(models.Contact)
@@ -106,7 +106,7 @@ def update_contact(
 def delete_contact(
     contact_id: int,
     current_user: models.User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_tenant_db),
 ):
     c = (
         db.query(models.Contact)
