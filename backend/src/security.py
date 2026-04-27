@@ -19,7 +19,7 @@ from clerk_backend_api import Clerk
 from clerk_backend_api.security.types import AuthenticateRequestOptions
 
 from src import config, models
-from src.database import get_db
+from src.database import current_org_id_var, get_admin_db
 
 
 _clerk: Optional[Clerk] = None
@@ -145,7 +145,7 @@ def _sync_membership_on_demand(
     return existing
 
 
-async def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
+async def get_current_user(request: Request, db: Session = Depends(get_admin_db)) -> models.User:
     """Validate Clerk JWT, sync on demand, return User with attached claims.
 
     Attaches: organization_id, org_role, permissions (all from JWT, not DB).
@@ -156,6 +156,9 @@ async def get_current_user(request: Request, db: Session = Depends(get_db)) -> m
     org_id = payload.get("org_id")
     org_role = payload.get("org_role")
     permissions: List[str] = payload.get("org_permissions", []) or []
+
+    # Make org_id visible to get_authed_db so it can SET LOCAL app.current_org_id.
+    current_org_id_var.set(org_id)
 
     if not user_id:
         raise HTTPException(status_code=401, detail="Token missing subject")
