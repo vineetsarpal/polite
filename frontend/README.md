@@ -6,10 +6,9 @@ The React + Vite + TypeScript frontend for Polite, a modern, lightweight Insuran
 
 ## Features
 
-- User authentication (JWT, stored in `localStorage` via `AuthContext`)
-- Continue as a guest user
+- User authentication via Clerk (`@clerk/clerk-react`)
 - Create, view, and edit policies and contacts
-- Multi-tenant: data is scoped to the logged-in user's organization
+- Multi-tenant: data is scoped to the logged-in user's Clerk organization
 - Type-safe API calls via types generated from the backend's OpenAPI schema
 - Responsive, Chakra UI–based interface
 
@@ -35,7 +34,7 @@ From the monorepo root:
     ```bash
     cp .env.sample .env
     ```
-    Set `VITE_API_BASE_URL` (e.g. `http://localhost:8000/api`).
+    Set `VITE_API_BASE_URL` (e.g. `http://localhost:8000/api`) and `VITE_CLERK_PUBLISHABLE_KEY` (see below).
 
 3. **Run the app**
     ```bash
@@ -51,9 +50,21 @@ From the monorepo root:
     npx openapi-typescript http://localhost:8000/openapi.json -o src/types/openapi.ts
     ```
 
+## Authentication (Clerk)
+
+Set in `frontend/.env`:
+
+```
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+```
+
+(Same value as the backend's `CLERK_PUBLISHABLE_KEY` — get it from Clerk dashboard → Configure → API Keys.)
+
+The app uses `@clerk/clerk-react` for sign-in/sign-up, organization management, and `<Protect>` for permission-gated UI. Backend tokens are injected automatically via the `useApiClient` hook (`src/lib/apiClient.ts`).
+
 ## Project Notes
 
-- **Routing:** TanStack Router with file-based routes in `src/routes/`. `src/routeTree.gen.ts` is **auto-generated** — never hand-edit it.
-- **Data fetching:** TanStack Query, plus inline `fetch()` calls in route components that read the bearer token from `useAuth()`.
+- **Routing:** TanStack Router with file-based routes in `src/routes/`. `src/routeTree.gen.ts` is **auto-generated** — never hand-edit it. Sign-in and sign-up live at `/sign-in` and `/sign-up`.
+- **Data fetching:** TanStack Query, using the `useApiClient` hook for authenticated requests.
 - **UI:** Chakra UI v3, forms via `react-hook-form`.
 - **Path alias:** `@/*` → `src/*`.

@@ -1,191 +1,164 @@
+"""Seed development data.
+
+Provisions one demo organization + one demo admin user via Clerk Backend API,
+then seeds sample contacts and policies for that org. Idempotent: safe to re-run.
+
+Required env: CLERK_SECRET_KEY, DATABASE_URL.
+
+WARNING: drops and recreates app schema. Dev only.
+"""
+from __future__ import annotations
+
 import os
 import sys
-from datetime import datetime, timezone
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from datetime import datetime, date, timezone
+from datetime import datetime, timezone, timedelta
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.insert(0, os.path.join(project_root))
+from clerk_backend_api import Clerk
+from clerk_backend_api.models.getuserlistop import GetUserListRequest
+from clerk_backend_api.models.createorganizationop import CreateOrganizationRequestBody
+from sqlalchemy.orm import Session
 
-from src.database import Base
-from src import models, schemas, utils 
-from dotenv import load_dotenv
+# Project root on path so `from src...` resolves when run as `uv run python scripts/seed_db.py`
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-DATABASE_URL= os.getenv("DATABASE_URL")
+from src import config, models  # noqa: E402
+from src.database import Base, engine, SessionLocal  # noqa: E402
 
-engine = create_engine(DATABASE_URL)
+DEMO_ORG_NAME = "Polite Demo Insurance"
+DEMO_ORG_SLUG = "polite-demo"
+DEMO_ADMIN_EMAIL = "demo-admin+clerk_test@example.com"
+DEMO_ADMIN_PASSWORD = "PoliteDemo!2026"
+DEMO_ADMIN_FIRST = "Demo"
+DEMO_ADMIN_LAST = "Admin"
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def seed_data():
-    db: Session = next(get_db())
-    print("Seeding database...")
-    try:
-        # --- Create Organizations ---
-        org1_id = "org_polite"
-        org2_id = "org_guest"
-
-        org1 = db.query(models.Organization).filter(models.Organization.id == org1_id).first()
-        if not org1:
-            org1 = models.Organization(id=org1_id, name="Polite")
-            db.add(org1)
-            db.commit()
-            db.refresh(org1)
-        
-        org2 = db.query(models.Organization).filter(models.Organization.id == org2_id).first()
-        if not org2:
-            org2 = models.Organization(id=org2_id, name="Guest")
-            db.add(org2)
-            db.commit()
-            db.refresh(org2)
-
-        # --- Create Users ---
-        admin_password_hash = utils.hash_password("admin")
-        admin_user = db.query(models.User).filter(models.User.username == "admin").first()
-        if not admin_user:
-            admin_user = models.User(
-                username="admin",
-                password=admin_password_hash,
-                email="admin@example.com",
-                full_name="Administrator",
-                organization_id=org1_id
-            )
-            db.add(admin_user)
-            db.commit()
-            db.refresh(admin_user)
-        else:
-            print("Admin user already exists")
-
-        guest_password_hash = utils.hash_password("guest")
-        guest_user = db.query(models.User).filter(models.User.username == "guest").first()
-        if not guest_user:
-            guest_user = models.User(
-                username="guest",
-                password=guest_password_hash,
-                email="guest@example.com",
-                full_name="Guest",
-                organization_id=org2_id
-            )
-            db.add(guest_user)
-            db.commit()
-            db.refresh(guest_user)
-        else:
-            print("Guest user already exists")
-
-        # --- Create Roles ---
-        admin_role = db.query(models.Role).filter(models.Role.name == "admin").first()
-        if not admin_role:
-            admin_role = models.Role(name="admin", description="Administrator")
-            db.add(admin_role)
-            db.commit()
-            db.refresh(admin_role)
-            print(f"Created role: {admin_role.name}")
-        else:
-            print(f"Role '{admin_role.name}' already exists.")
-
-        guest_role = db.query(models.Role).filter(models.Role.name == "guest").first()
-        if not guest_role:
-            guest_role = models.Role(name="guest", description="Guest")
-            db.add(guest_role)
-            db.commit()
-            db.refresh(guest_role)
-            print(f"Created role: {guest_role.name}")
-        else:
-            print(f"Role '{guest_role.name}' already exists.")
-        
-
-        # --- Create Permissions ---
-        perms_to_create = [
-            "create:users", "update:users", "delete:users",
-            "create:roles", "update:roles", "delete:roles",
-            "create:contacts", "update:contacts", "delete:contacts",
-            "create:policies", "update:policies", "delete:policies",
-        ]
-
-        created_permissions = {}
-        for perm_name in perms_to_create:
-            permission = db.query(models.Permission).filter(models.Permission.name == perm_name).first()
-            if not permission:
-                permission = models.Permission(name=perm_name, description=f"Ability to {perm_name.replace(':', ' ')}")
-                db.add(permission)
-                db.commit()
-                db.refresh(permission)
-            else:
-                print(f"Permission '{permission.name}' already exists.")
-            created_permissions[perm_name] = permission
-
-        # --- Assign Permissions to Roles ---
-        admin_role.permissions.extend([p for p in created_permissions.values() if p not in admin_role.permissions])
-        guest_role_perms = [
-            created_permissions["create:contacts"], created_permissions["update:contacts"], 
-            created_permissions["create:policies"], created_permissions["update:policies"], 
-        ]
-        guest_role.permissions.extend([p for p in guest_role_perms if p not in guest_role.permissions])
-        db.commit()
-
-        # --- Assign Roles to Users ---
-        if admin_user and admin_role not in admin_user.roles:
-            admin_user.roles.append(admin_role)
-        else:
-             print(f"'{admin_role.name}' role already assigned to '{admin_user.username}' or user/role missing.")
-
-        if guest_user and guest_role not in guest_user.roles:
-            guest_user.roles.append(guest_role)
-        else:
-            print(f"'{guest_user.name}' role already assigned to '{guest_user.username}' or user/role missing.")
-        db.commit()
-
-        # --- Create Contacts ---
-        contact1 = models.Contact(type="Individual", first_name="Foo", last_name="Bar", email="foobar@example.com", dob="1970-01-01", organization_id=org1_id)
-        contact2 = models.Contact(type="Individual", first_name="John", last_name="Doe", email="johndoe@example.com", dob="1980-01-01", organization_id=org2_id)
-        db.add_all([contact1, contact2])
-        db.commit()
-        db.refresh(contact1)
-        db.refresh(contact2)
-        print(f"Created contacts")
-
-        # --- Create Policies ---
-        policy1 = models.Policy(lob="auto", status="active", base_premium=100, net_premium=750, tax=10, sum_insured=1000000, license_plate="LP1 1VL", vin="123456789", 
-                                start_date=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc), 
-                                end_date=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc), 
-                                policyholder_id=contact1.id,
-                                organization_id=org1_id)
-        policy2 = models.Policy(lob="auto", status="active", base_premium=50, net_premium=500, tax=5, sum_insured=500000, license_plate="LP2 2VL", vin="987654321", 
-                        start_date=datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
-                        end_date=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc), 
-                        policyholder_id=contact2.id,
-                        organization_id=org2_id)
-        db.add_all([policy1, policy2])
-        db.commit()
-        db.refresh(policy1)
-        db.refresh(policy2)
-        print(f"Created policies")
-
-        print("\nDatabase seeding complete!")
-
-    except Exception as e:
-        db.rollback()
-        print(f"\nError during seeding: {e}")
-    finally:
-        db.close()
-
-if __name__ == "__main__":
-    # Drop tables
-    print("Dropping tables...")
+def reset_schema():
+    print("Dropping and recreating schema...")
     Base.metadata.drop_all(bind=engine)
-
-    # Create tables
-    print("Recreating tables...")
     Base.metadata.create_all(bind=engine)
 
-    # Seed data
-    seed_data()
 
+def upsert_clerk_user(clerk: Clerk):
+    existing = clerk.users.list(request=GetUserListRequest(email_address=[DEMO_ADMIN_EMAIL]))
+    if existing:
+        print(f"Found existing demo admin: {existing[0].id}")
+        return existing[0]
+    print("Creating demo admin user in Clerk...")
+    user = clerk.users.create(
+        email_address=[DEMO_ADMIN_EMAIL],
+        password=DEMO_ADMIN_PASSWORD,
+        first_name=DEMO_ADMIN_FIRST,
+        last_name=DEMO_ADMIN_LAST,
+        skip_password_checks=True,
+    )
+    print(f"Created Clerk user: {user.id}")
+    return user
+
+
+def upsert_clerk_org(clerk: Clerk, admin_user_id: str):
+    listing = clerk.organizations.list(query=DEMO_ORG_NAME)
+    for org in (listing.data or []):
+        if org.name == DEMO_ORG_NAME:
+            print(f"Found existing demo org: {org.id}")
+            return org
+    print("Creating demo organization in Clerk...")
+    org = clerk.organizations.create(
+        request=CreateOrganizationRequestBody(
+            name=DEMO_ORG_NAME,
+            created_by=admin_user_id,
+        )
+    )
+    print(f"Created Clerk org: {org.id}")
+    return org
+
+
+def mirror_into_db(db: Session, clerk_user, clerk_org):
+    """Mirror Clerk state into our DB so domain inserts have FK targets.
+
+    Real flow uses webhooks; the seed script does it inline so the script can
+    proceed without waiting for webhook delivery.
+    """
+    primary_email = next(
+        (
+            ea.email_address
+            for ea in (clerk_user.email_addresses or [])
+            if ea.id == clerk_user.primary_email_address_id
+        ),
+        DEMO_ADMIN_EMAIL,
+    )
+    db_user = models.User(
+        id=clerk_user.id,
+        email=primary_email,
+        full_name=f"{clerk_user.first_name or ''} {clerk_user.last_name or ''}".strip() or None,
+        is_active=True,
+        clerk_synced_at=datetime.now(timezone.utc),
+    )
+    db.merge(db_user)
+
+    db_org = models.Organization(
+        id=clerk_org.id,
+        name=clerk_org.name,
+        slug=getattr(clerk_org, "slug", None) or DEMO_ORG_SLUG,
+        clerk_synced_at=datetime.now(timezone.utc),
+    )
+    db.merge(db_org)
+    db.commit()
+
+
+def seed_domain(db: Session, org_id: str):
+    print("Seeding sample contacts and policies...")
+    contact = models.Contact(
+        type="individual",
+        first_name="Alice",
+        last_name="Underwriter",
+        email="alice@example.com",
+        organization_id=org_id,
+    )
+    db.add(contact)
+    db.flush()
+
+    today = datetime.now(timezone.utc)
+    db.add(
+        models.Policy(
+            lob="auto",
+            status="active",
+            base_premium=1200.00,
+            net_premium=1100.00,
+            tax=100.00,
+            sum_insured=20000.00,
+            license_plate="DEMO-001",
+            vin="1HGCM82633A004352",
+            start_date=today,
+            end_date=today + timedelta(days=365),
+            policyholder_id=contact.id,
+            organization_id=org_id,
+        )
+    )
+    db.commit()
+    print("Domain seed complete.")
+
+
+def main():
+    if not config.CLERK_SECRET_KEY:
+        raise SystemExit("CLERK_SECRET_KEY is required")
+
+    reset_schema()
+    clerk = Clerk(bearer_auth=config.CLERK_SECRET_KEY)
+
+    clerk_user = upsert_clerk_user(clerk)
+    clerk_org = upsert_clerk_org(clerk, admin_user_id=clerk_user.id)
+
+    db: Session = SessionLocal()
+    try:
+        mirror_into_db(db, clerk_user, clerk_org)
+        seed_domain(db, clerk_org.id)
+    finally:
+        db.close()
+
+    print("\nDone.")
+    print(f"Org: {clerk_org.name} ({clerk_org.id})")
+    print(f"Admin: {DEMO_ADMIN_EMAIL} / {DEMO_ADMIN_PASSWORD}")
+
+
+if __name__ == "__main__":
+    main()
