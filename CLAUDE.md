@@ -4,28 +4,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repo layout
 
-This is a monorepo for **Polite**, an insurance policy management app. Two top-level apps:
+This is a monorepo for **Polite**, a B2B SaaS for North-American insurance brokers. Two top-level apps:
 
-- `backend/` — FastAPI + SQLAlchemy + PostgreSQL API. Originated from the `polite-server` repo and was added here via `git subtree` (see initial commits).
+- `backend/` — FastAPI + SQLAlchemy + PostgreSQL API. Originated from the `polite-server` repo and was added here via `git subtree`.
 - `frontend/` — React 19 + Vite + TypeScript SPA. Originated from `polite-client-web`, also subtree-merged.
 
 The two apps communicate at runtime via HTTP; in dev the frontend points at the backend through `VITE_API_BASE_URL` (default `http://localhost:8000/api`).
 
+## Production-grade roadmap
+
+Polite is being moved to a managed, production-grade stack across **8 sub-projects** (each with its own spec → plan → implementation cycle). The full roadmap and architecture rationale live in `docs.local/roadmap.md` (gitignored — a local working document):
+
+1. **Identity & auth migration → Clerk** — *complete (PR #1, tag `v0.2.0-auth-migration`)*
+2. Database migration (managed Postgres + Alembic + RLS)
+3. Hosting & deploy (Render/Fly + Vercel + GitHub Actions)
+4. Object storage (policy document upload)
+5. Observability (Sentry + Better Stack; decommission self-hosted Prom)
+6. Transactional email (Resend)
+7. Billing (Stripe subscriptions tied to organizations)
+8. Security hardening (rate limiting, audit log, periodic Clerk reconciliation, etc.)
+
 ## Common commands
 
 ### Backend (`cd backend`)
+
 ```bash
-uv sync                                # one-time (and after dep changes); creates .venv/
+uv sync                                # one-time and after dep changes; creates .venv/
 
 uv run fastapi dev src/main.py         # dev server with reload (http://localhost:8000)
-uv run python scripts/seed_db.py       # DROPS and recreates all tables, then seeds demo data
-docker compose up -d                   # spins up Prometheus + Grafana + Alertmanager (NOT the API)
+uv run python scripts/seed_db.py       # DROPS and recreates all tables, then seeds demo data via Clerk Backend API
+uv run python scripts/purge_deleted.py # hard-delete soft-deleted rows past the grace period (default 30 days)
+docker compose up -d                   # spins up Prometheus + Grafana + Alertmanager (NOT the API; legacy, decommissioned in sub-project #5)
 ```
-Dependencies are managed via `pyproject.toml` + `uv.lock` (uv); there is no `requirements.txt`. Add deps with `uv add <pkg>` (don't hand-edit the lock). Tables are auto-created on app startup via `Base.metadata.create_all` in `src/main.py` — there is no Alembic. Schema changes require dropping the DB or re-running `seed_db.py`.
 
-Production runs Gunicorn under systemd (`gunicorn.service`); CI deploy is `.github/workflows/deploy.yml` which SSH's to the prod host and restarts the `api` service.
+Dependencies are managed via `pyproject.toml` + `uv.lock` (uv); there is no `requirements.txt`. Add deps with `uv add <pkg>` (don't hand-edit the lock). Tables are auto-created on app startup via `Base.metadata.create_all` in `src/main.py` — there is no Alembic yet (lands in sub-project #2). Schema changes currently require dropping the DB or re-running `seed_db.py`.
+
+For local Clerk webhook delivery, run `ngrok http 8000` and register the public URL at Clerk dashboard → Webhooks (events: `user.*`, `organization.*`, `organizationMembership.*`).
+
+Production runs Gunicorn under systemd (`gunicorn.service`); CI deploy is `.github/workflows/deploy.yml` which SSH's to the prod host and restarts the `api` service. (To be replaced in sub-project #3.)
 
 ### Frontend (`cd frontend`)
+
 ```bash
 npm install
 npm run dev      # Vite dev server (http://localhost:5173)
@@ -35,41 +54,52 @@ npm run lint     # eslint .
 # Regenerate API types from the running backend's OpenAPI schema:
 npx openapi-typescript http://localhost:8000/openapi.json -o src/types/openapi.ts
 ```
-There is no test suite in either app.
+
+There is no automated test suite in either app. This gap is acknowledged and will be addressed incrementally per sub-project.
 
 ## Architecture
 
 ### Backend
 
-- Entry point `src/main.py` mounts six v1 routers under `/api`: `auth`, `user`, `role`, `permission`, `contact`, `policy`. All live in `src/routers/v1/`.
-- `src/models.py` — SQLAlchemy ORM. Core entities: `Organization`, `User`, `Role`, `Permission`, `Contact`, `Policy`. `User<->Role` and `Role<->Permission` are many-to-many (`user_roles`, `role_permissions`).
+- Entry point `src/main.py` mounts four v1 routers under `/api`: `user`, `contact`, `policy`, plus a webhook ingress at `/api/webhooks/clerk`.
+- `src/models.py` — SQLAlchemy ORM. Core entities:
+  - **Clerk-mirrored** (string PKs from Clerk IDs): `Organization`, `User`, `Membership`. All have `deleted_at` (soft-delete) and `clerk_synced_at` columns. The mirror exists only for FK integrity; never the primary read path for identity/role/permission.
+  - **Domain** (integer PKs, app-owned): `Contact`, `Policy`. Both scoped by `organization_id` FK.
 - `src/schemas.py` — Pydantic request/response models. Naming convention: `XBase` / `XCreate` / `XPublic`.
-- `src/security.py` — JWT auth (HS256 via `python-jose`), bcrypt via `passlib`. Two parallel auth stacks coexist:
-  - **Basic auth** (active): `OAuth2PasswordBearer` at `/api/v1/auth/login`. `get_current_user` decodes the JWT, attaches `permissions` and `organization_id` from the token claims onto the user object.
-  - **Auth0** (commented out throughout the codebase, planned): `get_current_user_auth0` validates RS256 tokens against Auth0's JWKS. Frontend has matching commented-out `Auth0Provider` wiring in `src/main.tsx`.
+- `src/security.py` — Clerk JWT validation (RS256 via Clerk JWKS) using `clerk-backend-api` v5. Three exports:
+  - `get_current_user` — validates session token, syncs user/org/membership on demand if not yet mirrored, attaches JWT-sourced `organization_id`, `org_role`, `permissions` onto the User object.
+  - `get_current_active_user` — refuses inactive users or missing org context.
+  - `require_permission(perm)` — FastAPI dependency factory. Use as `dependencies=[Depends(require_permission("org:policies:create"))]`.
+- `src/routers/webhooks/clerk.py` — Svix-verified ingress at `POST /api/webhooks/clerk`. Idempotent, order-tolerant handlers for `user.*`, `organization.*`, `organizationMembership.*` events.
 - `src/database.py` — single SQLAlchemy `engine`/`SessionLocal`. `get_db()` is the FastAPI dependency.
-- Observability: `prometheus-fastapi-instrumentator` exposes `/metrics`; the `docker-compose.yml` at backend root runs the Prometheus/Grafana/Alertmanager stack independently.
+- `src/config.py` — env loading. All Clerk env vars (`CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY`, `CLERK_WEBHOOK_SECRET`, `CLERK_JWT_ISSUER`) plus app-level (`DATABASE_URL`, `FRONTEND_URL`).
+- Observability: `prometheus-fastapi-instrumentator` exposes `/metrics`; `docker-compose.yml` at backend root runs the Prometheus/Grafana/Alertmanager stack independently. (Slated for replacement in sub-project #5.)
 
-### Multi-tenancy and RBAC (load-bearing pattern)
+### Multi-tenancy and authorization (load-bearing pattern)
 
-Every request is scoped to the user's `organization_id`, which is **read from the JWT, not the request body**. When creating resources, handlers explicitly inject it:
+**Authorization is claims-only.** The Clerk JWT carries `org_id`, `org_role`, and `org_permissions[]` — `get_current_user` reads them and never queries the DB for role/permission state. Roles and permissions are defined in the Clerk dashboard (Configure → Roles & Permissions); features and permissions follow the `org:<feature>:<action>` convention (e.g., `org:contacts:create`, `org:policies:delete`).
+
+Every request is scoped to the user's `organization_id`, which is **read from the Clerk JWT, not the request body**. When creating resources, handlers explicitly inject it:
+
 ```python
 data["organization_id"] = current_user.organization_id
 ```
-List/get/update queries always filter by `Model.organization_id == current_user.organization_id`. Preserve this on any new endpoint touching org-scoped tables (`Contact`, `Policy`, `User`).
 
-Permissions are strings of the form `action:resource` (e.g. `create:policies`, `delete:roles`). The login handler in `routers/v1/auth.py` aggregates them from `user.roles[*].permissions` into the `permissions` JWT claim. Most write endpoints currently inline the check:
-```python
-if "create:policies" not in current_user.permissions:
-    raise HTTPException(status_code=403, ...)
-```
-A `security.check_permission` helper exists but is not consistently used — match the surrounding handler's style when editing.
+List/get/update queries always filter by `Model.organization_id == current_user.organization_id`. Preserve this on any new endpoint touching org-scoped tables (`Contact`, `Policy`, `Membership`). The two gates — `require_permission(...)` (what action) and the org_id filter (whose data) — are independent and both required.
+
+When a JWT references a user/org/membership not yet mirrored in the DB (webhook-vs-API race during sign-up), `get_current_user` does a sync-on-demand fetch from the Clerk Backend API and upserts. Webhooks are an *optimization*, not a correctness dependency.
+
+### Soft-delete with grace period
+
+`organizations`, `users`, `memberships` rows have a nullable `deleted_at`. Clerk's deletion webhooks set this column rather than hard-deleting. After the grace period (default 30 days; override with `PURGE_GRACE_DAYS` env var), `scripts/purge_deleted.py` hard-deletes them — cascade FKs clean up dependent rows.
 
 ### Frontend
 
-- **Routing**: TanStack Router with file-based routes in `src/routes/`. `src/routeTree.gen.ts` is **auto-generated** by `@tanstack/router-plugin/vite` — never hand-edit it; add files under `src/routes/` and the dev server regenerates it. Dynamic segments use `$param.tsx` (e.g. `dashboard/policies/$policyId.tsx`).
-- **Data fetching**: TanStack Query (`@tanstack/react-query`). `QueryClient`, `AuthProvider`, and Chakra `Provider` wrap the app in `src/main.tsx`.
-- **Auth**: `src/context/AuthContext.tsx` stores the bearer token in `localStorage` under `"token"` and exposes `useAuth()`. Most fetches are inline `fetch()` calls in route components that read `token` from `useAuth()` and send `Authorization: Bearer ${token}`. There is no global API client — `src/services/` only contains `authService.ts` and `userService.ts`.
+- **Routing**: TanStack Router with file-based routes in `src/routes/`. `src/routeTree.gen.ts` is **auto-generated** by `@tanstack/router-plugin/vite` — never hand-edit it; add files under `src/routes/` and the dev server regenerates it. Dynamic segments use `$param.tsx`; splat (catch-all) segments use `$.tsx` (used for Clerk's path-routed sign-in/sign-up flows).
+- **Top-level routes**: `/`, `/about`, `/sign-in` (+ `sign-in.$.tsx` splat), `/sign-up` (+ splat), `/dashboard/*`. The dashboard layout (`dashboard/route.tsx`) gates on Clerk's `useAuth().isSignedIn` and an active organization, redirecting to `<RedirectToSignIn>` or `<RedirectToCreateOrganization>` as appropriate.
+- **Data fetching**: TanStack Query (`@tanstack/react-query`). `QueryClient`, `ClerkProvider`, and Chakra `Provider` wrap the app in `src/main.tsx`.
+- **Auth**: `@clerk/clerk-react` v5. Use `useAuth()`, `useUser()`, `useOrganization()` from Clerk for identity and org context. Sign-in / sign-up / organization management are rendered via Clerk's `<SignIn>`, `<SignUp>`, `<OrganizationProfile>`, `<OrganizationSwitcher>`, `<UserButton>` components. Permission-gated UI uses `<Protect permission="org:policies:create">…</Protect>` or imperative `useAuth().has({ permission: "..." })`.
+- **API client**: `src/lib/apiClient.ts` exports a `useApiClient()` hook with `get`/`post`/`put`/`del` methods that auto-inject the Clerk session token via `getToken()`. Use it everywhere — there is no separate auth service. Convenience helper `v1('/contacts')` returns `/api/v1/contacts`.
 - **Types from API**: `src/types/openapi.ts` is generated from the backend's OpenAPI schema. Components import request/response types like:
   ```ts
   type FormData = paths["/api/v1/policies/"]["post"]["requestBody"]["content"]["application/json"]
@@ -79,10 +109,29 @@ A `security.check_permission` helper exists but is not consistently used — mat
 
 ### Required env vars
 
-Backend (`.env` in `backend/`): `DATABASE_URL`, `SECRET_KEY`, `ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `FRONTEND_URL`, and (for the dormant Auth0 path) `AUTH0_DOMAIN`, `AUTH0_AUDIENCE`, `AUTH0_ALGORITHM`.
+Backend (`.env` in `backend/`):
+- `DATABASE_URL`, `FRONTEND_URL`
+- `CLERK_SECRET_KEY` (sk_test_...)
+- `CLERK_PUBLISHABLE_KEY` (pk_test_..., same value as the frontend's)
+- `CLERK_WEBHOOK_SECRET` (whsec_..., from Clerk dashboard → Webhooks after registering an endpoint)
+- `CLERK_JWT_ISSUER` (`https://<slug>.clerk.accounts.dev` — the "Frontend API URL" from Clerk dashboard)
 
-Frontend (`.env` in `frontend/`, see `.env.sample`): `VITE_API_BASE_URL`, plus `VITE_AUTH0_*` if enabling Auth0.
+Frontend (`.env` in `frontend/`, see `.env.sample`):
+- `VITE_API_BASE_URL`
+- `VITE_CLERK_PUBLISHABLE_KEY` (pk_test_..., same value as backend's `CLERK_PUBLISHABLE_KEY`)
 
-### Seed credentials
+### Seed data
 
-`scripts/seed_db.py` creates two demo users: `admin/admin` (full permissions, org `org_polite`) and `guest/guest` (limited contact/policy create+update, org `org_guest`). The frontend login screen has a "Continue as guest" button that submits these credentials.
+`scripts/seed_db.py` provisions one demo organization + one demo admin via the Clerk Backend API, then seeds sample contacts and policies. Idempotent (safe to re-run). Drops & recreates the app schema. Dev-only.
+
+Demo creds: `demo-admin+clerk_test@example.com` / `PoliteDemo!2026`. The `+clerk_test` suffix tells Clerk dev mode this is a test user (no real email sent). Public-facing demo experience (e.g., the old "Continue as guest" button) was dropped in sub-project #1; a richer demo flow may land later.
+
+### Clerk dashboard configuration (one-time per environment)
+
+- Personal accounts: **Disabled** (B2B-only)
+- Email + password: enabled; email verification required
+- MFA: optional (no enforcement at launch)
+- Social SSO / SAML: disabled initially
+- Organization creation by users: allowed (required for self-serve sign-up)
+- Roles: `org:admin` (all 8 perms) and `org:member` (read on both features + create/update on contacts and policies — no deletes)
+- Features: `contacts`, `policies`. Permissions per feature: `create`, `read`, `update`, `delete` → keys `org:<feature>:<action>`.
