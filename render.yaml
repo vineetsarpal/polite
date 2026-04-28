@@ -1,0 +1,63 @@
+# Polite — Render Blueprint
+# Source of truth for Render services. Do not create services manually
+# in the Render dashboard; this file owns service definitions.
+
+services:
+  - type: web
+    name: polite-api
+    runtime: python
+    plan: starter
+    region: virginia
+    rootDir: backend
+    buildCommand: uv sync --frozen
+    preDeployCommand: uv run alembic upgrade head
+    startCommand: uv run gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    previews:
+      generation: automatic
+      expireAfterDays: 7
+    envVars:
+      - fromGroup: polite-prod-secrets
+      # DATABASE_URL is auto-injected by the Render+Neon integration
+      # (configured in the Render dashboard, Task 7). Prod points at the
+      # `production` Neon branch; PR previews point at per-PR branches.
+
+  - type: cron
+    name: polite-purge-deleted
+    runtime: python
+    plan: starter
+    region: virginia
+    rootDir: backend
+    schedule: "0 3 * * *"
+    buildCommand: uv sync --frozen
+    startCommand: uv run python scripts/purge_deleted.py
+    envVars:
+      - fromGroup: polite-prod-secrets
+
+envVarGroups:
+  - name: polite-prod-secrets
+    envVars:
+      # Static secrets — values are pasted into the Render dashboard manually
+      # (do not commit values). Listed here so the group is provisioned.
+      - key: POLITE_APP_DB_PASSWORD
+        sync: false
+      - key: POLITE_ADMIN_DB_PASSWORD
+        sync: false
+      - key: OWNER_DB_USER
+        sync: false
+      - key: OWNER_DB_PASSWORD
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+      - key: CLERK_JWT_ISSUER
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      # DATABASE_URL_ADMIN and DATABASE_URL_MIGRATIONS are intentionally
+      # omitted — the backend's _derive_urls() helper constructs them
+      # at runtime from DATABASE_URL plus the role-password env vars above.
