@@ -1,9 +1,9 @@
 """Alembic environment.
 
-Connects with DATABASE_URL_MIGRATIONS (project-owner role, direct endpoint).
-The owner role can run DDL freely and bypasses RLS.
+Connects with the migrations URL resolved by _derive_urls() in src.database
+(project-owner role, direct endpoint). The owner role can run DDL freely and
+bypasses RLS.
 """
-import os
 from logging.config import fileConfig
 
 from dotenv import load_dotenv
@@ -18,14 +18,13 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-migrations_url = os.getenv("DATABASE_URL_MIGRATIONS")
-if not migrations_url:
-    raise RuntimeError("DATABASE_URL_MIGRATIONS is not set")
-config.set_main_option("sqlalchemy.url", migrations_url)
-
 # Import models so target_metadata is populated.
-from src.database import Base  # noqa: E402
+# MIGRATIONS_URL is the third element of _derive_urls(); importing it here
+# also covers Render PR previews where only DATABASE_URL is auto-injected.
+from src.database import Base, MIGRATIONS_URL  # noqa: E402
 from src import models  # noqa: F401, E402
+
+config.set_main_option("sqlalchemy.url", MIGRATIONS_URL)
 
 target_metadata = Base.metadata
 
