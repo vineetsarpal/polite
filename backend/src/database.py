@@ -12,9 +12,10 @@ Three connection roles, two engines:
 - Alembic uses DATABASE_URL_MIGRATIONS directly (project owner); not exposed
     as an engine in application code.
 """
+import os
 from contextvars import ContextVar
 from typing import Optional
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, urlunparse, quote
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
@@ -45,8 +46,8 @@ def _derive_urls() -> tuple[str, str, str]:
     parsed = urlparse(app_url)
     direct_host = parsed.hostname.replace("-pooler", "") if parsed.hostname else parsed.hostname
     port = f":{parsed.port}" if parsed.port else ""
-    netloc_admin = f"polite_admin:{config.POLITE_ADMIN_DB_PASSWORD}@{direct_host}{port}"
-    netloc_owner = f"{config.OWNER_DB_USER}:{config.OWNER_DB_PASSWORD}@{direct_host}{port}"
+    netloc_admin = f"polite_admin:{quote(config.POLITE_ADMIN_DB_PASSWORD, safe='')}@{direct_host}{port}"
+    netloc_owner = f"{config.OWNER_DB_USER}:{quote(config.OWNER_DB_PASSWORD, safe='')}@{direct_host}{port}"
 
     derived_admin = urlunparse(parsed._replace(netloc=netloc_admin))
     derived_migrations = urlunparse(parsed._replace(netloc=netloc_owner))
@@ -74,8 +75,12 @@ def _assert_engine_role(engine, expected_role: str) -> None:
             )
 
 
-_assert_engine_role(engine_app, "polite_app")
-_assert_engine_role(engine_admin, "polite_admin")
+# CI escape hatch: set POLITE_SKIP_ENGINE_ASSERTION=1 in environments that
+# import src.database without a live DB (e.g., openapi.json dump). Production
+# must never set this flag.
+if os.environ.get("POLITE_SKIP_ENGINE_ASSERTION") != "1":
+    _assert_engine_role(engine_app, "polite_app")
+    _assert_engine_role(engine_admin, "polite_admin")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_app)
 AdminSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_admin)
