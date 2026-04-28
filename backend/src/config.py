@@ -9,6 +9,9 @@ ALGORITHM = os.getenv("ALGORITHM")
 DATABASE_URL = os.getenv("DATABASE_URL")
 DATABASE_URL_ADMIN = os.getenv("DATABASE_URL_ADMIN")
 DATABASE_URL_MIGRATIONS = os.getenv("DATABASE_URL_MIGRATIONS")
+POLITE_ADMIN_DB_PASSWORD = os.getenv("POLITE_ADMIN_DB_PASSWORD", "")
+OWNER_DB_USER = os.getenv("OWNER_DB_USER", "")        # Required only in PR previews; empty default for prod/local-dev
+OWNER_DB_PASSWORD = os.getenv("OWNER_DB_PASSWORD", "")  # Required only in PR previews; empty default for prod/local-dev
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
