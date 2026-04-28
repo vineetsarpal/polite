@@ -9,8 +9,9 @@ Three connection roles, two engines:
 - `engine_admin` (DATABASE_URL_ADMIN, role `polite_admin`, direct endpoint):
     Used by webhook handler, scripts, and `get_current_user`'s sync-on-demand
     path. Has BYPASSRLS — no GUC needed.
-- Alembic uses DATABASE_URL_MIGRATIONS directly (project owner); not exposed
-    as an engine in application code.
+- Alembic imports `MIGRATIONS_URL` from this module (resolved by `_derive_urls()`,
+    project-owner role, direct endpoint); no engine for it is created in
+    application code.
 """
 import os
 from contextvars import ContextVar
