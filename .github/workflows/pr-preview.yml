@@ -1,0 +1,85 @@
+name: PR Preview Wiring
+
+on:
+  workflow_run:
+    workflows: ["PR Checks"]
+    types: [completed]
+
+jobs:
+  wire-frontend-preview:
+    name: Wire Vercel preview to Render preview backend
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
+    steps:
+      - name: Resolve PR number
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          pr_number=$(gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID" --jq '.pull_requests[0].number')
+          if [ -z "$pr_number" ] || [ "$pr_number" = "null" ]; then
+            echo "::warning ::No PR associated with this run; skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "number=$pr_number" >> $GITHUB_OUTPUT
+
+      - name: Find matching Render preview service
+        id: render
+        if: steps.pr.outputs.skip != 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          # Render names preview services as polite-api-pr-<n>
+          name="polite-api-pr-$PR_NUMBER"
+          response=$(curl -s -H "Authorization: Bearer $RENDER_API_KEY" \
+            "https://api.render.com/v1/services?name=$name&limit=1")
+          url=$(echo "$response" | jq -r '.[0].service.serviceDetails.url // empty')
+          if [ -z "$url" ]; then
+            echo "::warning ::No Render preview service found for PR #$PR_NUMBER (may be frontend-only PR)"
+            echo "skip=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "Render preview backend: $url"
+          echo "url=$url" >> $GITHUB_OUTPUT
+
+      - name: Resolve Vercel preview deployment
+        id: vercel
+        if: steps.render.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm install -g vercel
+          # Get the deployment for this PR's branch
+          branch=$(gh api "repos/${{ github.repository }}/pulls/$PR_NUMBER" --jq '.head.ref')
+          echo "branch=$branch" >> $GITHUB_OUTPUT
+
+      - name: Set Vercel preview env var
+        if: steps.render.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          BRANCH: ${{ steps.vercel.outputs.branch }}
+          BACKEND_URL: ${{ steps.render.outputs.url }}
+        run: |
+          # Remove any prior branch-scoped value, then add the new one.
+          vercel env rm VITE_API_BASE_URL preview "$BRANCH" --yes --token "$VERCEL_TOKEN" || true
+          echo "$BACKEND_URL/api" | vercel env add VITE_API_BASE_URL preview "$BRANCH" --token "$VERCEL_TOKEN"
+
+      - name: Trigger Vercel preview redeploy
+        if: steps.render.outputs.skip != 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          BRANCH: ${{ steps.vercel.outputs.branch }}
+        run: |
+          # Force a fresh build so the new env var takes effect.
+          vercel deploy --token "$VERCEL_TOKEN" --yes --git-source.ref "$BRANCH"
