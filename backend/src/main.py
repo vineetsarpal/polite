@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from src.routers import health
 from src.routers.v1 import contact, policy, user
 from src.routers.webhooks import clerk as clerk_webhook
 
@@ -46,6 +47,7 @@ async def root():
 
 
 # Routers
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(user.v1_router, prefix=API_BASE_PREFIX)
 app.include_router(contact.v1_router, prefix=API_BASE_PREFIX)
 app.include_router(policy.v1_router, prefix=API_BASE_PREFIX)

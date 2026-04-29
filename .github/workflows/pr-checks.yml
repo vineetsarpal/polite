@@ -1,0 +1,161 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend deps lockfile sanity
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install Python
+        run: uv python install 3.13
+      - name: Sync deps (validates uv.lock is consistent with pyproject.toml)
+        run: uv sync --frozen
+      # Lint (ruff) and typecheck (mypy) intentionally omitted — the project
+      # has no lint configuration today. Adding lint enforcement is its own
+      # follow-up (likely sub-project #8).
+
+  frontend:
+    name: Frontend build (typecheck via tsc -b)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build   # `tsc -b && vite build` — typecheck is part of build
+      # `npm run lint` intentionally omitted — pre-existing eslint warnings
+      # in the codebase haven't been triaged. Lint enforcement is its own
+      # follow-up; build alone catches type/build regressions.
+
+  openapi-drift:
+    name: OpenAPI types drift check
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install Python
+        run: uv python install 3.13
+      - name: Sync backend deps
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Dump openapi.json (with dummy DB env vars to satisfy URL parsing)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg2://x:x@localhost:5432/x
+          DATABASE_URL_ADMIN: postgresql+psycopg2://x:x@localhost:5432/x
+          DATABASE_URL_MIGRATIONS: postgresql+psycopg2://x:x@localhost:5432/x
+          POLITE_APP_DB_PASSWORD: x
+          POLITE_ADMIN_DB_PASSWORD: x
+          OWNER_DB_USER: x
+          OWNER_DB_PASSWORD: x
+          CLERK_SECRET_KEY: sk_test_x
+          CLERK_PUBLISHABLE_KEY: pk_test_x
+          CLERK_WEBHOOK_SECRET: whsec_x
+          CLERK_JWT_ISSUER: https://example.clerk.accounts.dev
+          FRONTEND_URL: http://localhost:5173
+          POLITE_SKIP_ENGINE_ASSERTION: "1"
+        run: uv run python scripts/dump_openapi.py > /tmp/openapi.json
+      - name: Regenerate openapi.ts
+        run: npx openapi-typescript /tmp/openapi.json -o /tmp/openapi.ts
+      - name: Diff against committed openapi.ts
+        run: |
+          if ! diff -q /tmp/openapi.ts frontend/src/types/openapi.ts > /dev/null; then
+            echo "::error ::frontend/src/types/openapi.ts is out of date."
+            echo "Run: npx openapi-typescript http://localhost:8000/openapi.json -o frontend/src/types/openapi.ts"
+            diff -u frontend/src/types/openapi.ts /tmp/openapi.ts | head -50
+            exit 1
+          fi
+          echo "OpenAPI types are in sync."
+
+  alembic-sql-gate:
+    name: Alembic migration safety gate
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+      - name: Install Python
+        run: uv python install 3.13
+      - name: Sync backend deps
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Detect new migration files
+        id: detect
+        run: |
+          new_files=$(git diff --name-only --diff-filter=A origin/main...HEAD -- backend/alembic/versions/ | grep '\.py$' || true)
+          if [ -z "$new_files" ]; then
+            echo "no_new_migrations=true" >> $GITHUB_OUTPUT
+            echo "No new migration files in this PR."
+          else
+            echo "no_new_migrations=false" >> $GITHUB_OUTPUT
+            echo "$new_files"
+          fi
+      - name: Render Alembic SQL
+        if: steps.detect.outputs.no_new_migrations == 'false'
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql+psycopg2://x:x@localhost:5432/x
+          DATABASE_URL_ADMIN: postgresql+psycopg2://x:x@localhost:5432/x
+          DATABASE_URL_MIGRATIONS: postgresql+psycopg2://x:x@localhost:5432/x
+          POLITE_APP_DB_PASSWORD: x
+          POLITE_ADMIN_DB_PASSWORD: x
+          OWNER_DB_USER: x
+          OWNER_DB_PASSWORD: x
+          POLITE_SKIP_ENGINE_ASSERTION: "1"
+        run: |
+          # Determine prev rev: alembic head on origin/main.
+          git fetch origin main
+          PREV=$(git show origin/main:backend/alembic/versions/$(git ls-tree -r --name-only origin/main backend/alembic/versions/ | tail -1 | xargs basename) | grep -m1 "^revision = " | cut -d"'" -f2 || echo "base")
+          # head rev: take the most recent migration file's revision = string
+          HEAD=$(grep -m1 "^revision = " backend/alembic/versions/$(ls -1 backend/alembic/versions/*.py | tail -1 | xargs basename) | cut -d"'" -f2)
+          echo "Rendering SQL for $PREV:$HEAD"
+          uv run alembic upgrade --sql "$PREV:$HEAD" > /tmp/migration.sql
+          echo "::group::Rendered SQL"
+          cat /tmp/migration.sql
+          echo "::endgroup::"
+      - name: Lint rendered SQL
+        if: steps.detect.outputs.no_new_migrations == 'false'
+        run: uv run python backend/scripts/check_migration_sql.py /tmp/migration.sql
+      - name: Comment SQL on PR
+        if: steps.detect.outputs.no_new_migrations == 'false'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: alembic-sql-gate
+          path: /tmp/migration.sql
+          message: |
+            ### Migration SQL preview
+
+            Generated by `alembic upgrade --sql <prev>:<head>` against the new migrations in this PR.
+
+            ```sql
+            (SQL rendered above; check the workflow's "Render Alembic SQL" step for the full output.)
+            ```
+
+            **Safety lint:** ✅ passed (or this comment wouldn't be posted; the gate fails the workflow on detection of destructive patterns without a `# safety:` marker).
