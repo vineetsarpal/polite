@@ -4,26 +4,6 @@
  */
 
 export interface paths {
-    "/metrics": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Metrics
-         * @description Endpoint that serves Prometheus metrics.
-         */
-        get: operations["metrics_metrics_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/": {
         parameters: {
             query?: never;
@@ -33,46 +13,6 @@ export interface paths {
         };
         /** Root */
         get: operations["root__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Me */
-        get: operations["me_api_v1_users_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Org Members
-         * @description List users in the caller's active organization.
-         *
-         *     Requires `org:contacts:read` as a coarse 'can see other org members' gate.
-         *     Adjust to a dedicated permission if/when one is added.
-         */
-        get: operations["list_org_members_api_v1_users__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -118,6 +58,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health
+         * @description Static health check used by Render's healthCheckPath.
+         *
+         *     Deliberately does NOT touch the database. A DB-touching health check
+         *     would be filtered to zero rows by RLS (no app.current_org_id is set
+         *     on this anonymous request) and would return misleading-but-passing.
+         *     DB liveness is covered by Sentry + Better Stack in sub-project #5.
+         */
+        get: operations["health_api_v1_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/policies/": {
         parameters: {
             query?: never;
@@ -155,6 +120,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Org Members
+         * @description List users in the caller's active organization.
+         *
+         *     Requires `org:contacts:read` as a coarse 'can see other org members' gate.
+         *     Adjust to a dedicated permission if/when one is added.
+         */
+        get: operations["list_org_members_api_v1_users__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Me */
+        get: operations["me_api_v1_users_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/webhooks/clerk": {
         parameters: {
             query?: never;
@@ -172,54 +177,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Endpoint that serves Prometheus metrics.
+         */
+        get: operations["metrics_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /** ContactCreate */
         ContactCreate: {
-            /** Type */
-            type?: ("individual" | "company") | null;
-            /** First Name */
-            first_name?: string | null;
-            /** Last Name */
-            last_name?: string | null;
-            /** Email */
-            email?: string | null;
             /** Dob */
             dob?: string | null;
+            /** Email */
+            email?: string | null;
+            /** First Name */
+            first_name?: string | null;
             /**
              * Is Active
              * @default true
              */
             is_active: boolean;
+            /** Last Name */
+            last_name?: string | null;
+            /** Type */
+            type?: ("individual" | "company") | null;
         };
         /** ContactPublic */
         ContactPublic: {
-            /** Type */
-            type?: ("individual" | "company") | null;
-            /** First Name */
-            first_name?: string | null;
-            /** Last Name */
-            last_name?: string | null;
-            /** Email */
-            email?: string | null;
-            /** Dob */
-            dob?: string | null;
-            /**
-             * Is Active
-             * @default true
-             */
-            is_active: boolean;
-            /** Id */
-            id: number;
-            /** Organization Id */
-            organization_id: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Dob */
+            dob?: string | null;
+            /** Email */
+            email?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Is Active
+             * @default true
+             */
+            is_active: boolean;
+            /** Last Name */
+            last_name?: string | null;
+            /** Organization Id */
+            organization_id: string;
+            /** Type */
+            type?: ("individual" | "company") | null;
             /**
              * Updated At
              * Format: date-time
@@ -236,8 +261,6 @@ export interface components {
          * @description User listed within their org (joins users + memberships).
          */
         OrgMember: {
-            /** Id */
-            id: string;
             /**
              * Email
              * Format: email
@@ -245,102 +268,107 @@ export interface components {
             email: string;
             /** Full Name */
             full_name?: string | null;
+            /** Id */
+            id: string;
             /** Is Active */
             is_active: boolean;
-            /** Membership Id */
-            membership_id: string;
             /**
              * Membership Created At
              * Format: date-time
              */
             membership_created_at: string;
+            /** Membership Id */
+            membership_id: string;
         };
         /** PolicyCreate */
         PolicyCreate: {
-            /** Lob */
-            lob?: string | null;
-            /**
-             * Status
-             * @default active
-             */
-            status: string | null;
             /** Base Premium */
             base_premium?: number | null;
-            /** Net Premium */
-            net_premium?: number | null;
-            /** Tax */
-            tax?: number | null;
-            /** Sum Insured */
-            sum_insured?: number | null;
+            /**
+             * End Date
+             * Format: date-time
+             */
+            end_date: string;
             /** License Plate */
             license_plate?: string | null;
-            /** Vin */
-            vin?: string | null;
+            /** Lob */
+            lob?: string | null;
+            /** Net Premium */
+            net_premium?: number | null;
+            /** Policyholder Id */
+            policyholder_id?: number | null;
             /**
              * Start Date
              * Format: date-time
              */
             start_date: string;
             /**
-             * End Date
-             * Format: date-time
+             * Status
+             * @default active
              */
-            end_date: string;
-            /** Policyholder Id */
-            policyholder_id?: number | null;
+            status: string | null;
+            /** Sum Insured */
+            sum_insured?: number | null;
+            /** Tax */
+            tax?: number | null;
+            /** Vin */
+            vin?: string | null;
         };
         /** PolicyPublic */
         PolicyPublic: {
-            /** Lob */
-            lob?: string | null;
-            /**
-             * Status
-             * @default active
-             */
-            status: string | null;
             /** Base Premium */
             base_premium?: number | null;
-            /** Net Premium */
-            net_premium?: number | null;
-            /** Tax */
-            tax?: number | null;
-            /** Sum Insured */
-            sum_insured?: number | null;
-            /** License Plate */
-            license_plate?: string | null;
-            /** Vin */
-            vin?: string | null;
-            /**
-             * Start Date
-             * Format: date-time
-             */
-            start_date: string;
-            /**
-             * End Date
-             * Format: date-time
-             */
-            end_date: string;
-            /** Policyholder Id */
-            policyholder_id?: number | null;
-            /** Id */
-            id: number;
-            /** Organization Id */
-            organization_id: string;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
             /**
+             * End Date
+             * Format: date-time
+             */
+            end_date: string;
+            /** Id */
+            id: number;
+            /** License Plate */
+            license_plate?: string | null;
+            /** Lob */
+            lob?: string | null;
+            /** Net Premium */
+            net_premium?: number | null;
+            /** Organization Id */
+            organization_id: string;
+            /** Policyholder Id */
+            policyholder_id?: number | null;
+            /**
+             * Start Date
+             * Format: date-time
+             */
+            start_date: string;
+            /**
+             * Status
+             * @default active
+             */
+            status: string | null;
+            /** Sum Insured */
+            sum_insured?: number | null;
+            /** Tax */
+            tax?: number | null;
+            /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
+            /** Vin */
+            vin?: string | null;
         };
         /** UserPublic */
         UserPublic: {
-            /** Id */
-            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
             /**
              * Email
              * Format: email
@@ -348,16 +376,13 @@ export interface components {
             email: string;
             /** Full Name */
             full_name?: string | null;
+            /** Id */
+            id: string;
             /**
              * Is Active
              * @default true
              */
             is_active: boolean;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
             /**
              * Updated At
              * Format: date-time
@@ -366,16 +391,16 @@ export interface components {
         };
         /** ValidationError */
         ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
             msg: string;
             /** Error Type */
             type: string;
-            /** Input */
-            input?: unknown;
-            /** Context */
-            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -386,26 +411,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    metrics_metrics_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     root__get: {
         parameters: {
             query?: never;
@@ -422,46 +427,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-        };
-    };
-    me_api_v1_users_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserPublic"];
-                };
-            };
-        };
-    };
-    list_org_members_api_v1_users__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OrgMember"][];
                 };
             };
         };
@@ -614,6 +579,28 @@ export interface operations {
             };
         };
     };
+    health_api_v1_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+    };
     list_policies_api_v1_policies__get: {
         parameters: {
             query?: never;
@@ -762,7 +749,67 @@ export interface operations {
             };
         };
     };
+    list_org_members_api_v1_users__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrgMember"][];
+                };
+            };
+        };
+    };
+    me_api_v1_users_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPublic"];
+                };
+            };
+        };
+    };
     clerk_webhook_api_webhooks_clerk_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    metrics_metrics_get: {
         parameters: {
             query?: never;
             header?: never;
