@@ -19,9 +19,11 @@ services:
       expireAfterDays: 7
     envVars:
       - fromGroup: polite-prod-secrets
-      # DATABASE_URL is auto-injected by the Render+Neon integration
-      # (configured in the Render dashboard, Task 7). Prod points at the
-      # `production` Neon branch; PR previews point at per-PR branches.
+      # DATABASE_URL is part of polite-prod-secrets and points at the
+      # `production` Neon branch. PR-preview services initially inherit
+      # this value; .github/workflows/pr-preview.yml then PATCHes the
+      # preview service's DATABASE_URL via Render API to point at the
+      # shared `preview` Neon branch (NEON_PREVIEW_DATABASE_URL secret).
 
   - type: cron
     name: polite-purge-deleted
@@ -38,26 +40,20 @@ services:
 envVarGroups:
   - name: polite-prod-secrets
     envVars:
-      # Static secrets — values are pasted into the Render dashboard manually
-      # (do not commit values). Listed here so the group is provisioned.
+      # Static secrets — values are pasted into the Render dashboard
+      # manually after the group is provisioned. Listing keys here only
+      # declares the group's structure; Render env-var-group entries do
+      # not support `sync: false` (would be a YAML schema error).
+      - key: DATABASE_URL
       - key: POLITE_APP_DB_PASSWORD
-        sync: false
       - key: POLITE_ADMIN_DB_PASSWORD
-        sync: false
       - key: OWNER_DB_USER
-        sync: false
       - key: OWNER_DB_PASSWORD
-        sync: false
       - key: CLERK_SECRET_KEY
-        sync: false
       - key: CLERK_PUBLISHABLE_KEY
-        sync: false
       - key: CLERK_WEBHOOK_SECRET
-        sync: false
       - key: CLERK_JWT_ISSUER
-        sync: false
       - key: FRONTEND_URL
-        sync: false
       # DATABASE_URL_ADMIN and DATABASE_URL_MIGRATIONS are intentionally
-      # omitted — the backend's _derive_urls() helper constructs them
-      # at runtime from DATABASE_URL plus the role-password env vars above.
+      # omitted — the backend's _derive_urls() helper constructs them at
+      # runtime from DATABASE_URL plus the role-password env vars above.
