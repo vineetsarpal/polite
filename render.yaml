@@ -41,23 +41,25 @@ services:
     envVars:
       - fromGroup: polite-prod-secrets
 
-envVarGroups:
-  - name: polite-prod-secrets
-    envVars:
-      # Static secrets — values are pasted into the Render dashboard
-      # manually after the group is provisioned. Listing keys here only
-      # declares the group's structure; Render env-var-group entries do
-      # not support `sync: false` (would be a YAML schema error).
-      - key: DATABASE_URL
-      - key: POLITE_APP_DB_PASSWORD
-      - key: POLITE_ADMIN_DB_PASSWORD
-      - key: OWNER_DB_USER
-      - key: OWNER_DB_PASSWORD
-      - key: CLERK_SECRET_KEY
-      - key: CLERK_PUBLISHABLE_KEY
-      - key: CLERK_WEBHOOK_SECRET
-      - key: CLERK_JWT_ISSUER
-      - key: FRONTEND_URL
-      # DATABASE_URL_ADMIN and DATABASE_URL_MIGRATIONS are intentionally
-      # omitted — the backend's _derive_urls() helper constructs them at
-      # runtime from DATABASE_URL plus the role-password env vars above.
+# NOTE: the `polite-prod-secrets` env-var group is **NOT** declared
+# inline here. Render's blueprint schema requires both key AND value
+# for every entry under `envVarGroups[].envVars`, which is incompatible
+# with secrets we don't want to commit. The group is created and
+# populated manually in the Render dashboard before the blueprint is
+# applied; `fromGroup: polite-prod-secrets` above just references it.
+#
+# Required keys in the externally-managed group (set in dashboard):
+#   - DATABASE_URL                 (production Neon branch pooled URL)
+#   - POLITE_APP_DB_PASSWORD
+#   - POLITE_ADMIN_DB_PASSWORD
+#   - OWNER_DB_USER
+#   - OWNER_DB_PASSWORD
+#   - CLERK_SECRET_KEY
+#   - CLERK_PUBLISHABLE_KEY
+#   - CLERK_WEBHOOK_SECRET
+#   - CLERK_JWT_ISSUER
+#   - FRONTEND_URL
+#
+# DATABASE_URL_ADMIN and DATABASE_URL_MIGRATIONS are intentionally
+# omitted — the backend's _derive_urls() helper constructs them at
+# runtime from DATABASE_URL plus the role-password env vars above.
