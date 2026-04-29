@@ -2,6 +2,13 @@
 # Source of truth for Render services. Do not create services manually
 # in the Render dashboard; this file owns service definitions.
 
+# Root-level previews block enables PR-preview environments for the
+# whole blueprint and sets the inactivity TTL. expireAfterDays only
+# lives here — it is not a valid field on service-level `previews:`.
+previews:
+  generation: automatic
+  expireAfterDays: 7
+
 services:
   - type: web
     name: polite-api
@@ -14,9 +21,6 @@ services:
     startCommand: uv run gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     autoDeploy: true
-    previews:
-      generation: automatic
-      expireAfterDays: 7
     envVars:
       - fromGroup: polite-prod-secrets
       # DATABASE_URL is part of polite-prod-secrets and points at the
