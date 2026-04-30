@@ -20,8 +20,13 @@ services:
     region: virginia
     rootDir: backend
     buildCommand: uv sync --frozen
-    preDeployCommand: uv run alembic upgrade head
-    startCommand: uv run gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:$PORT
+    # preDeployCommand is paid-tier-only on Render. On the free plan we
+    # chain `alembic upgrade head` into startCommand instead. Idempotent
+    # (~1s no-op when already at head); runs on every cold-start. When
+    # upgrading to starter, hoist alembic back into preDeployCommand to
+    # restore atomic schema+code deploys (failure aborts before traffic
+    # switch instead of failing health check after).
+    startCommand: uv run alembic upgrade head && uv run gunicorn -w 4 -k uvicorn.workers.UvicornWorker src.main:app --bind 0.0.0.0:$PORT
     healthCheckPath: /api/v1/health
     autoDeploy: true
     envVars:
