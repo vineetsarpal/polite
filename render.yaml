@@ -2,12 +2,19 @@
 # Source of truth for Render services. Do not create services manually
 # in the Render dashboard; this file owns service definitions.
 
-# Root-level previews block enables PR-preview environments for the
-# whole blueprint and sets the inactivity TTL. expireAfterDays only
-# lives here — it is not a valid field on service-level `previews:`.
-previews:
-  generation: automatic
-  expireAfterDays: 7
+# NOTE: Preview Environments require Render's Pro workspace (paid).
+# On Hobby workspace (free-tier dry-run), the `previews:` block is
+# rejected by the blueprint validator. Re-add the following when
+# upgrading to Pro:
+#
+#   previews:
+#     generation: automatic
+#     expireAfterDays: 7
+#
+# Until then, .github/workflows/pr-preview.yml will skip on every PR
+# (no Render preview service exists for it to find) and Vercel
+# previews always point at prod backend. Frontend-only review still
+# works; full-stack review is deferred to Pro upgrade.
 
 services:
   - type: web
