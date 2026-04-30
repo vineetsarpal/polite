@@ -13,7 +13,10 @@ services:
   - type: web
     name: polite-api
     runtime: python
-    plan: starter
+    # `free` plan: accept 15-min spin-down + ~30-60s cold start. Suitable
+    # for pre-revenue dry-run. Upgrade to `starter` (~$7/mo) before any
+    # design partner gets the URL.
+    plan: free
     region: virginia
     rootDir: backend
     buildCommand: uv sync --frozen
@@ -29,17 +32,11 @@ services:
       # preview service's DATABASE_URL via Render API to point at the
       # shared `preview` Neon branch (NEON_PREVIEW_DATABASE_URL secret).
 
-  - type: cron
-    name: polite-purge-deleted
-    runtime: python
-    plan: starter
-    region: virginia
-    rootDir: backend
-    schedule: "0 3 * * *"
-    buildCommand: uv sync --frozen
-    startCommand: uv run python scripts/purge_deleted.py
-    envVars:
-      - fromGroup: polite-prod-secrets
+  # The `polite-purge-deleted` cron job is intentionally NOT declared
+  # here at v1 — Render Cron Jobs have no free tier. Run purge manually
+  # via `uv run python scripts/purge_deleted.py` until paid plan is on.
+  # Re-add the cron block when upgrading; spec §6 / plan Task 6 has the
+  # original definition.
 
 # NOTE: the `polite-prod-secrets` env-var group is **NOT** declared
 # inline here. Render's blueprint schema requires both key AND value
